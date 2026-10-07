@@ -146,31 +146,46 @@ app.post("/api/avatar/create-from-url", async c => {
     if (!key()) return c.json({ error: "Live avatar API key is not configured." }, 503);
     const body = await c.req.json();
     const imageUrl = typeof body.imageUrl === "string" ? body.imageUrl : "";
-    const displayName = typeof body.displayName === "string" ? body.displayName.slice(0, 80) : "RED LIVE Human";
-    const motionPrompt = typeof body.motionPrompt === "string" ? body.motionPrompt.slice(0, 700) : "Natural subtle head movement, relaxed breathing, believable eye movement, warm conversational expression.";
-    if (!/^https:\/\//i.test(imageUrl)) return c.json({ error: "A secure image URL is required." }, 400);
+    const displayName = typeof body.displayName === "string" ? body.displayName.slice(0, 80) : "RED LIVE Avatar";
+    const motionPrompt = typeof body.motionPrompt === "string" ? body.motionPrompt.slice(0, 1000) : "Natural conversational presence with subtle breathing, eye movement, listening behavior and restrained expressive gestures.";
+    if (!/^https:\/\//i.test(imageUrl)) return c.json({ error: "Secure image URL required." }, 400);
 
-    const assetRes = await fetch(base + "/assets/remote", {
-      method: "POST",
-      headers: { ...headers(), "Content-Type": "application/json" },
-      body: JSON.stringify({ kind: "image", remoteUrl: imageUrl, originalFilename: displayName.replace(/[^a-z0-9]+/gi, "-").toLowerCase() + ".jpg" })
-    });
-    const asset = await assetRes.json().catch(() => ({}));
-    if (!assetRes.ok) return c.json({ error: asset?.error || "Could not register portrait.", details: asset }, assetRes.status);
+    const source = await fetch(imageUrl);
+    if (!source.ok) return c.json({ error: "Avatar portrait could not be loaded." }, 502);
+    const type = (source.headers.get("content-type") || "").split(";")[0].toLowerCase();
+    if (!["image/jpeg","image/png","image/webp"].includes(type)) return c.json({ error: "Avatar portrait must be JPEG, PNG, or WebP." }, 415);
+    const bytes = new Uint8Array(await source.arrayBuffer());
+    if (bytes.byteLength > 8 * 1024 * 1024) return c.json({ error: "Avatar portrait is too large." }, 413);
 
-    const avatarRes = await fetch(base + "/avatars", {
+    const form = new FormData();
+    const ext = type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg";
+    form.append("file", new Blob([bytes], { type }), displayName.replace(/[^a-z0-9]+/gi, "-").toLowerCase() + "." + ext);
+    form.append("kind", "image");
+
+    const upload = await fetch(base + "/assets", { method: "POST", headers: headers(), body: form });
+    const asset = await upload.json().catch(() => ({}));
+    if (!upload.ok) return c.json({ error: asset?.error || "Avatar portrait upload failed.", details: asset }, upload.status as any);
+
+    const created = await fetch(base + "/avatars", {
       method: "POST",
-      headers: { ...headers(), "Content-Type": "application/json" },
+      headers: { ...headers(), "content-type": "application/json" },
       body: JSON.stringify({
         displayName,
+        sourceKind: "image",
         sourceAssetId: asset.id,
         motionPrompt,
-        voice: { auto_description: "Natural, warm, conversational human voice with relaxed pacing and expressive delivery." }
+        voice: { auto_description: "Natural, warm, expressive conversational voice with relaxed pacing and clear speech." }
       })
     });
-    const avatar = await avatarRes.json().catch(() => ({}));
-    if (!avatarRes.ok) return c.json({ error: avatar?.error || "Could not create avatar.", details: avatar }, avatarRes.status);
-    return c.json({ id: avatar.id, name: avatar.displayName || displayName, status: avatar.status, posterUrl: avatar.posterUrl || avatar.poster_url || null, idleVideoUrl: avatar.idleVideoUrl || avatar.idle_video_url || null });
+    const avatar = await created.json().catch(() => ({}));
+    if (!created.ok) return c.json({ error: avatar?.error || "Avatar creation failed.", details: avatar }, created.status as any);
+    return c.json({
+      id: avatar.id,
+      name: avatar.displayName || displayName,
+      status: avatar.status,
+      posterUrl: avatar.posterUrl || avatar.poster_url || imageUrl,
+      idleVideoUrl: avatar.idleVideoUrl || avatar.idle_video_url || null
+    });
   } catch (e) {
     return c.json({ error: e instanceof Error ? e.message : "Avatar creation failed." }, 500);
   }
