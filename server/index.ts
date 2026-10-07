@@ -114,8 +114,7 @@ app.post("/api/memory", async c => {
     // request, and browsers impose tight cookie/header limits.
     const context = [
       ...(memory
-        ? [{ role: "system", content: "User-saved memory:
-" + memory }]
+        ? [{ role: "system", content: "User-saved memory:\n" + memory }]
         : []),
       ...messages.slice(-12).map((m: any) => ({
         role: m.role === "user" ? "user" : "assistant",
@@ -147,8 +146,18 @@ app.get("/api/avatars", async c => {
     if (!r.ok) return c.json({ avatars: [], error: `Avatar provider returned HTTP ${r.status}.` }, r.status as any);
     const payload = await r.json();
     const rows = Array.isArray(payload?.data) ? payload.data : [];
-    const avatars = rows
-      .filter((a:any) => /^ava_[A-Za-z0-9_-]+$/.test(String(a?.id)) && !isPublicFigureLabel(String(a?.displayName || a?.name || "")))
+    const example = {
+      id: "seed-rin-ashfall",
+      name: "Rin Ashfall",
+      status: "ready",
+      poster: "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/portrait.png",
+      idle: "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4",
+    };
+    const custom = rows
+      .filter((a:any) =>
+        /^ava_[A-Za-z0-9_-]+$/.test(String(a?.id)) &&
+        !isPublicFigureLabel(String(a?.displayName || a?.name || ""))
+      )
       .map((a:any) => ({
         id:String(a.id),
         name:String(a.displayName || a.name || "Live Avatar"),
@@ -156,7 +165,8 @@ app.get("/api/avatars", async c => {
         poster:a.posterUrl || a.poster_url || a.anchor?.url || null,
         idle:a.idleVideoUrl || a.idle_video_url || a.video?.url || null,
       }));
-    return c.json({ avatars });
+    const avatars = [example, ...custom];
+    return c.json({ avatars: [...new Map(avatars.map((x:any)=>[x.id,x])).values()] });
   } catch {
     return c.json({ avatars: [], error: "Avatar provider could not be reached." }, 502);
   }
