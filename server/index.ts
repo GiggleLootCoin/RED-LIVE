@@ -26,7 +26,16 @@ app.all("/api/realtime-avatar/*", realtimeAvatarHono({
       ? undefined
       : new Response("Not found", { status: 404 }),
   session: async ({ request, avatarId }) =>
-    avatarId === "seed-rin-ashfall" || avatarId.startsWith("ava_")
+    [
+      "seed-rin-ashfall",
+      "seed-vesper-nyx",
+      "seed-professor-thistle",
+      "seed-valko",
+      "seed-remy",
+      "seed-koko",
+      "seed-luciano-draven",
+      "seed-mark-zuckerberg",
+    ].includes(avatarId) || avatarId.startsWith("ava_")
       ? {
           instructions: persona,
           context: cookieContext(request),
@@ -77,14 +86,22 @@ app.post("/api/memory", async c => {
 });
 
 app.get("/api/avatars", async c => {
-  const fallback = [{
-    id: "seed-rin-ashfall",
-    name: "Rin Ashfall",
+  const fallback = [
+    ["seed-rin-ashfall", "Rin Ashfall", "rin-ashfall"],
+    ["seed-vesper-nyx", "Vesper Nyx", "vesper-nyx"],
+    ["seed-professor-thistle", "Professor Thistle", "professor-thistle"],
+    ["seed-valko", "Valko", "valko"],
+    ["seed-remy", "Remy", "remy"],
+    ["seed-koko", "Koko", "koko"],
+    ["seed-luciano-draven", "Luciano Draven", "luciano-draven"],
+    ["seed-mark-zuckerberg", "Mark Zuckerberg", "mark-zuckerberg"],
+  ].map(([id, name, slug]) => ({
+    id,
+    name,
     status: "ready",
-    poster: "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/portrait.png",
-    idle: "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4",
-  }];
-
+    poster: `https://realtimeavatar.ai/api/assets/public/characters/${slug}/portrait.png`,
+    idle: `https://realtimeavatar.ai/api/assets/public/characters/${slug}/idle-10s.mp4`,
+  }));
   if (!key()) return c.json({ avatars: fallback });
 
   try {
