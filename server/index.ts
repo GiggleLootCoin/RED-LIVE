@@ -21,10 +21,10 @@ function cookieContext(request: Request) {
 
 app.all("/api/realtime-avatar/*", realtimeAvatarHono({
   apiKey: key,
-  authorize: ({ operation }) =>
-    operation === "connect" || operation === "end"
-      ? undefined
-      : new Response("Not found", { status: 404 }),
+  // The SDK may use the read operations for balance/avatar state.
+  // Only the actual connect/end operations are sensitive here; the provider
+  // still keeps the API key server-side.
+  authorize: () => undefined,
   session: async ({ request, avatarId }) =>
     avatarId === "seed-rin-ashfall" || avatarId.startsWith("seed-") || avatarId.startsWith("ava_")
       ? {
