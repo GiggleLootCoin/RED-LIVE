@@ -76,6 +76,35 @@ app.post("/api/memory", async c => {
   }
 });
 
+app.get("/api/avatars", async c => {
+  const fallback = [{
+    id: "seed-rin-ashfall",
+    name: "Rin Ashfall",
+    status: "ready",
+    poster: "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/portrait.png",
+    idle: "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4",
+  }];
+
+  if (!key()) return c.json({ avatars: fallback });
+
+  try {
+    const r = await fetch(base + "/avatars", { headers: headers() });
+    if (!r.ok) return c.json({ avatars: fallback });
+    const payload = await r.json();
+    const rows = Array.isArray(payload?.data) ? payload.data : [];
+    const custom = rows
+      .filter((a: any) => a?.id && a.id !== "seed-rin-ashfall")
+      .map((a: any) => ({
+        id: String(a.id),
+        name: String(a.displayName || "AI Avatar"),
+        status: String(a.status || "unknown"),
+      }));
+    return c.json({ avatars: [...fallback, ...custom] });
+  } catch {
+    return c.json({ avatars: fallback });
+  }
+});
+
 app.post("/api/avatar/create", async c => {
   if (!key()) {
     return c.json({ error: "Realtime Avatar server key is not configured." }, 503);
