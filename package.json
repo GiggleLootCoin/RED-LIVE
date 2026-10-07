@@ -1,6 +1,27 @@
 {
-  "name":"red-live","private":true,"version":"0.4.0","type":"module",
-  "scripts":{"dev":"vite","build":"tsc --noEmit && vite build","preview":"vite preview","server":"tsx server/index.ts","start":"npm run build && npm run server"},
-  "dependencies":{"@hono/node-server":"1.19.2","@vitejs/plugin-react":"5.0.4","hono":"4.9.7","livekit-client":"2.22.3","react":"19.2.0","react-dom":"19.2.0","realtime-avatar":"0.20.0"},
-  "devDependencies":{"tsx":"4.20.5","typescript":"5.9.2","vite":"7.1.7"}
+  "name": "red-live",
+  "private": true,
+  "version": "0.4.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "server": "tsx server/index.ts",
+    "start": "npm run build && npm run server"
+  },
+  "dependencies": {
+    "@hono/node-server": "1.19.2",
+    "@vitejs/plugin-react": "5.0.4",
+    "hono": "4.9.7",
+    "livekit-client": "2.22.3",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "realtime-avatar": "0.20.0"
+  },
+  "devDependencies": {
+    "tsx": "4.20.5",
+    "typescript": "5.9.2",
+    "vite": "7.1.7"
+  }
 }
