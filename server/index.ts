@@ -5,7 +5,8 @@ import { readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 
 const app = new Hono();
-const key = () => process.env.REALTIME_AVATAR_API_KEY ?? "";\nconst fishVoiceId = () => process.env.RED_LIVE_FISH_VOICE_ID?.trim() || "";\nconst sessionVoice = () => fishVoiceId() ? { provider: "fish", voice_id: fishVoiceId(), speed: 0.96, emotion: "calm", language: "en-GB" } : undefined;
+const key = () => process.env.REALTIME_AVATAR_API_KEY ?? "";
+const fishVoiceId = () => process.env.RED_LIVE_FISH_VOICE_ID?.trim() || "";\nconst sessionVoice = () => fishVoiceId() ? { provider: "fish", voice_id: fishVoiceId(), speed: 0.96, emotion: "calm", language: "en-GB" } : undefined;
 const base = "https://realtimeavatar.ai/api/v1";
 const headers = () => ({ Authorization: "Bearer " + key() });
 const persona = "You are RED LIVE, a highly natural adult conversational AI companion. Speak like a real adult person: grounded, warm, calm, slightly imperfect and spontaneous. Use natural contractions, varied sentence length, realistic pauses, subtle emotional inflection and understated reactions. Avoid any cartoon, anime, childlike, mascot, announcer, presenter, radio, call-centre, sing-song, overly cheerful or theatrical delivery. Do not use exaggerated character voices, squeaky tones, fake excitement or constant smiling energy. Keep your vocal phrasing easy to speak aloud and conversational. Do not repeat greetings or filler. Listen while the user speaks and respond directly to what they actually said. Let the user interrupt. Keep ordinary replies concise and expand when useful. Use supplied conversation context as memory. Never claim to be human.";
