@@ -13,10 +13,24 @@ type AvatarChoice = { id: string; name: string; status: string; poster?: string 
 
 const STORE = "red-live-v4";
 const DEFAULT_ID = "seed-rin-ashfall";
-const IDLE =
-  "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4";
-const POSTER =
-  "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/portrait.png";
+const PUBLIC_AVATARS: AvatarChoice[] = [
+  ["seed-rin-ashfall", "Rin Ashfall", "rin-ashfall"],
+  ["seed-vesper-nyx", "Vesper Nyx", "vesper-nyx"],
+  ["seed-professor-thistle", "Professor Thistle", "professor-thistle"],
+  ["seed-valko", "Valko", "valko"],
+  ["seed-remy", "Remy", "remy"],
+  ["seed-koko", "Koko", "koko"],
+  ["seed-luciano-draven", "Luciano Draven", "luciano-draven"],
+  ["seed-mark-zuckerberg", "Mark Zuckerberg", "mark-zuckerberg"],
+].map(([id, name, slug]) => ({
+  id,
+  name,
+  status: "ready",
+  poster: `https://realtimeavatar.ai/api/assets/public/characters/${slug}/portrait.png`,
+  idle: `https://realtimeavatar.ai/api/assets/public/characters/${slug}/idle-10s.mp4`,
+}));
+const IDLE = PUBLIC_AVATARS[0].idle!;
+const POSTER = PUBLIC_AVATARS[0].poster!;
 
 const read = () => {
   try {
@@ -53,7 +67,7 @@ function App() {
   const [avatarId, setAvatarId] = useState(saved.avatarId || DEFAULT_ID);
   const [portrait, setPortrait] = useState("");
   const [avatarMedia, setAvatarMedia] = useState<{ poster?: string; idle?: string }>({});
-  const [avatars, setAvatars] = useState<AvatarChoice[]>([{ id: DEFAULT_ID, name: "Rin", status: "ready", poster: POSTER, idle: IDLE }]);
+  const [avatars, setAvatars] = useState<AvatarChoice[]>(PUBLIC_AVATARS);
   const [micReady, setMicReady] = useState<boolean | null>(null);
   const [avatarStatus, setAvatarStatus] = useState(saved.avatarStatus || "ready");
   const [name, setName] = useState(saved.name || "RED");
@@ -97,7 +111,14 @@ function App() {
     fetch("/api/avatars")
       .then((r) => r.json())
       .then((d) => {
-        if (!stop && Array.isArray(d.avatars)) setAvatars((current) => { const fetched = d.avatars as AvatarChoice[]; return fetched.some((a) => a.id === DEFAULT_ID) ? fetched : [{ id: DEFAULT_ID, name: "Rin", status: "ready", poster: POSTER, idle: IDLE }, ...fetched]; });
+        if (!stop && Array.isArray(d.avatars)) {
+          setAvatars(() => {
+            const fetched = d.avatars as AvatarChoice[];
+            const byId = new Map(PUBLIC_AVATARS.map((a) => [a.id, a]));
+            for (const a of fetched) byId.set(a.id, { ...byId.get(a.id), ...a });
+            return [...byId.values()];
+          });
+        }
       })
       .catch(() => {});
     return () => { stop = true; };
