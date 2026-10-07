@@ -13,20 +13,13 @@ type AvatarChoice = { id: string; name: string; status: string; poster?: string 
 
 const STORE = "red-live-v4";
 const DEFAULT_ID = "seed-rin-ashfall";
-const PUBLIC_AVATARS: AvatarChoice[] = [
-  ["seed-vesper-nyx", "Vesper Nyx", "vesper-nyx"],
-  ["seed-rin-ashfall", "Rin Ashfall", "rin-ashfall"],
-  ["seed-remy", "Remy", "remy"],
-  ["seed-luciano-draven", "Luciano Draven", "luciano-draven"],
-].map(([id, name, slug]) => ({
-  id,
-  name,
+const PUBLIC_AVATARS: AvatarChoice[] = [{
+  id: DEFAULT_ID,
+  name: "Rin Ashfall",
   status: "ready",
-  poster: `https://realtimeavatar.ai/api/assets/public/characters/${slug}/portrait.png`,
-  idle: id === DEFAULT_ID
-    ? "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4"
-    : undefined,
-}));
+  poster: "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/portrait.png",
+  idle: "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4",
+}];
 const IDLE = PUBLIC_AVATARS[0].idle!;
 const POSTER = PUBLIC_AVATARS[0].poster!;
 
@@ -388,6 +381,10 @@ function App() {
           </div>
 
           <div className="heroActions">
+            <div className="liveCapabilityCard">
+              <span className="livePulse"></span>
+              <div><b>REAL-TIME HUMAN PRESENCE</b><small>Two-way voice • interruption • live facial motion</small></div>
+            </div>
             {inCall && callError && (
               <div className="callError" role="alert">
                 <strong>Live connection stopped</strong>
@@ -418,8 +415,7 @@ function App() {
               </span>
             )}
             <span className="secure">
-              Full-duplex voice • interruption • camera • persistent
-              memory
+              Full-duplex voice • interruption • camera • persistent memory
             </span>
           </div>
         </section>
@@ -427,8 +423,8 @@ function App() {
 
         <section className="characters">
           <div className="chatHead">
-            <b>Choose your AI human</b>
-            <span>{avatars.filter((a) => a.status === "ready").length} available</span>
+            <b>Choose your live human</b>
+            <span>{avatars.filter((a) => a.status === "ready").length} live</span>
           </div>
           <div className="characterGrid">
             {avatars.filter((a) => a.status === "ready").map((a) => (
