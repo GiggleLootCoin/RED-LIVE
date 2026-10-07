@@ -9,6 +9,7 @@ import {
 import "./style.css";
 
 type Msg = { role: "user" | "assistant"; content: string; ts: number };
+type AvatarChoice = { id: string; name: string; status: string; poster?: string | null; idle?: string | null };
 
 const STORE = "red-live-v4";
 const DEFAULT_ID = "seed-rin-ashfall";
@@ -52,6 +53,7 @@ function App() {
   const [avatarId, setAvatarId] = useState(saved.avatarId || DEFAULT_ID);
   const [portrait, setPortrait] = useState("");
   const [avatarMedia, setAvatarMedia] = useState<{ poster?: string; idle?: string }>({});
+  const [avatars, setAvatars] = useState<AvatarChoice[]>([]);
   const [micReady, setMicReady] = useState<boolean | null>(null);
   const [avatarStatus, setAvatarStatus] = useState(saved.avatarStatus || "ready");
   const [name, setName] = useState(saved.name || "RED");
@@ -89,6 +91,17 @@ function App() {
       })
     );
   }, [messages, memory, avatarId, avatarStatus, name]);
+
+  useEffect(() => {
+    let stop = false;
+    fetch("/api/avatars")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!stop && Array.isArray(d.avatars)) setAvatars(d.avatars);
+      })
+      .catch(() => {});
+    return () => { stop = true; };
+  }, []);
 
   useEffect(() => {
     if (!avatarId.startsWith("ava_")) return;
@@ -374,6 +387,33 @@ function App() {
               Full-duplex voice • interruption • camera • persistent
               memory
             </span>
+          </div>
+        </section>
+
+        <section className="characters">
+          <div className="chatHead">
+            <b>Characters</b>
+            <span>{avatars.filter((a) => a.status === "ready").length} ready</span>
+          </div>
+          <div className="characterGrid">
+            {avatars.filter((a) => a.status === "ready").map((a) => (
+              <button
+                key={a.id}
+                className={"characterCard " + (avatarId === a.id ? "selected" : "")}
+                onClick={() => {
+                  setAvatarId(a.id);
+                  setAvatarStatus(a.status);
+                  setAvatarMedia({ poster: a.poster || undefined, idle: a.idle || undefined });
+                }}
+              >
+                {a.poster ? <img src={a.poster} alt="" /> : <div className="characterFallback">AI</div>}
+                <span>{a.name}</span>
+              </button>
+            ))}
+            <button className="characterCard createCard" onClick={() => setModal("avatar")}>
+              <div className="characterFallback">+</div>
+              <span>Create yours</span>
+            </button>
           </div>
         </section>
 
