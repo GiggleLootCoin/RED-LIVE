@@ -38,7 +38,7 @@ app.post("/api/memory", async c => {
     ];
     const encoded = encodeURIComponent(JSON.stringify(context));
     if(encoded.length>7000) return c.json({error:"Memory is too large."},413);
-    return new Response(JSON.stringify({ok:true}),{headers:{"content-type":"application/json","set-cookie:`red_memory=${encoded}; Path=/; Max-Age=31536000; Secure; SameSite=Lax`}});
+    return new Response(JSON.stringify({ok:true}),{headers:{"content-type":"application/json","set-cookie":`red_memory=${encoded}; Path=/; Max-Age=31536000; Secure; SameSite=Lax`}});
   } catch { return c.json({error:"Invalid memory payload."},400); }
 });
 
