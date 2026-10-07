@@ -51,6 +51,8 @@ function App() {
   const [memory, setMemory] = useState(saved.memory || "");
   const [avatarId, setAvatarId] = useState(saved.avatarId || DEFAULT_ID);
   const [portrait, setPortrait] = useState("");
+  const [avatarMedia, setAvatarMedia] = useState<{ poster?: string; idle?: string }>({});
+  const [micReady, setMicReady] = useState<boolean | null>(null);
   const [avatarStatus, setAvatarStatus] = useState(saved.avatarStatus || "ready");
   const [name, setName] = useState(saved.name || "RED");
   const [motion, setMotion] = useState(
@@ -66,6 +68,8 @@ function App() {
   >(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  const [webQuery, setWebQuery] = useState("");
+  const [webResults, setWebResults] = useState<Array<{ title: string; url: string; snippet: string }>>([]);
   const client = useMemo(
     () => createProxyClient({ proxyUrl: "/api/realtime-avatar" }),
     []
@@ -96,6 +100,7 @@ function App() {
         if (!r.ok) return;
         const d = await r.json();
         if (!stop) setAvatarStatus(d.status || "unknown");
+        if (!stop && (d.posterUrl || d.idleVideoUrl)) setAvatarMedia({ poster: d.posterUrl, idle: d.idleVideoUrl });
       } catch {}
     };
 
@@ -206,6 +211,7 @@ function App() {
       if (!r.ok) throw new Error(d.error || "Creation failed");
 
       setAvatarId(d.id);
+      setAvatarMedia({ poster: d.posterUrl, idle: d.idleVideoUrl });
       setAvatarStatus(d.status || "preprocessing");
       setNotice(
         d.status === "ready"
@@ -222,6 +228,33 @@ function App() {
   };
 
   const isDefault = avatarId === DEFAULT_ID;
+
+  const checkMic = async () => {
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error("Microphone access is unavailable in this browser.");
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+      setMicReady(true);
+      setNotice("Microphone is available. Start the live conversation.");
+    } catch {
+      setMicReady(false);
+      setNotice("Microphone access is blocked. In Brave, allow Microphone for this site, then try again.");
+    }
+  };
+
+  const webSearch = async () => {
+    const q = webQuery.trim();
+    if (!q) return;
+    setBusy(true);
+    try {
+      const r = await fetch("/api/web-search?q=" + encodeURIComponent(q));
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Web search failed.");
+      setWebResults(Array.isArray(d.results) ? d.results : []);
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : "Web search failed.");
+    } finally { setBusy(false); }
+  };
 
   return (
     <div className="app">
@@ -244,8 +277,8 @@ function App() {
               <AvatarCall
                 client={client}
                 avatarId={avatarId}
-                poster={isDefault ? POSTER : portrait || undefined}
-                idleVideoUrl={isDefault ? IDLE : undefined}
+                poster={isDefault ? POSTER : avatarMedia.poster || portrait || undefined}
+                idleVideoUrl={isDefault ? IDLE : avatarMedia.idle || undefined}
                 style={{ width: "100%", height: "100%" }}
                 onStatusChange={setCallStatus}
                 onConnectionDetailsChange={setConnection}
@@ -287,6 +320,8 @@ function App() {
                 loop
                 playsInline
               />
+             ) : avatarMedia.poster ? (
+              <img className="idle" src={avatarMedia.poster} alt={name} />
             ) : portrait ? (
               <img className="idle" src={portrait} alt={name} />
             ) : (
@@ -362,7 +397,7 @@ function App() {
 
         <nav>
           <button onClick={() => setModal("memory")}>Memory</button>
-          <button onClick={() => setModal("avatar")}>Create avatar</button>
+          <button onClick={() => setModal("avatar")}>Create avatar</button>\n          <button onClick={() => setModal("web")}>Web</button>
           <button onClick={() => setModal("settings")}>Settings</button>
         </nav>
       </main>
@@ -429,7 +464,7 @@ function App() {
         </div>
       )}
 
-      {modal === "settings" && (
+      {modal === "web" && (\n        <div className="modal">\n          <div className="sheet">\n            <button className="close" onClick={() => setModal(null)}>×</button>\n            <h2>Web search</h2>\n            <p>Search the web from RED LIVE when a search provider is configured on the server.</p>\n            <div className="webRow"><input value={webQuery} onChange={(e) => setWebQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && webSearch()} placeholder="Search the web…" /><button onClick={webSearch} disabled={busy}>Search</button></div>\n            <div className="results">{webResults.map((r) => <article key={r.url}><a href={r.url} target="_blank" rel="noreferrer">{r.title}</a><p>{r.snippet}</p></article>)}</div>\n            {notice && <div className="notice">{notice}</div>}\n          </div>\n        </div>\n      )}\n\n      {modal === "settings" && (
         <div className="modal">
           <div className="sheet">
             <button className="close" onClick={() => setModal(null)}>
@@ -443,7 +478,7 @@ function App() {
               Status: <b>{avatarStatus}</b>
             </p>
             <p>
-              Live voice uses the browser microphone over HTTPS. The provider
+              Live voice uses the browser microphone over HTTPS. Use “Test microphone” before a call if Brave has not granted access. The provider
               key remains server-side.
             </p>
             <button onClick={() => setModal("avatar")}>
