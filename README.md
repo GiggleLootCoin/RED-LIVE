@@ -2,6 +2,14 @@
 
 RED LIVE is the live-avatar application for persistent, hands-free AI conversations.
 
+![RED LIVE — live AI conversations](./assets/red-live-hero.svg)
+
+## Experience
+
+![RED LIVE feature overview](./assets/red-live-features.svg)
+
+RED LIVE brings real-time animated avatars, natural voice conversation, memory, camera awareness and live web tools into one mobile-friendly experience.
+
 Included:
 - Realtime talking avatar through Realtime Avatar + LiveKit
 - Full-duplex microphone conversation and interruption
