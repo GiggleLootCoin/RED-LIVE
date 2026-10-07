@@ -111,13 +111,15 @@ app.post("/api/memory", async c => {
 });
 
 app.get("/api/avatars", async c => {
-  const fallback = [{
-    id: "seed-rin-ashfall",
-    name: "Rin Ashfall",
-    status: "ready",
-    poster: "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/portrait.png",
-    idle: "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4",
-  }];
+  const fallback = [
+    { id: "seed-rin-ashfall", name: "Rin Ashfall", status: "ready", poster: "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/portrait.png", idle: "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4" },
+    { id: "seed-vesper-nyx", name: "Vesper Nyx", status: "ready", poster: "https://realtimeavatar.ai/api/assets/public/characters/vesper-nyx/portrait.png" },
+    { id: "seed-professor-thistle", name: "Professor Thistle", status: "ready", poster: "https://realtimeavatar.ai/api/assets/public/characters/professor-thistle/portrait.png" },
+    { id: "seed-valko", name: "Valko", status: "ready", poster: "https://realtimeavatar.ai/api/assets/public/characters/valko/portrait.png" },
+    { id: "seed-remy", name: "Remy", status: "ready", poster: "https://realtimeavatar.ai/api/assets/public/characters/remy/portrait.png" },
+    { id: "seed-koko", name: "Koko", status: "ready", poster: "https://realtimeavatar.ai/api/assets/public/characters/koko/portrait.png" },
+    { id: "seed-luciano-draven", name: "Luciano Draven", status: "ready", poster: "https://realtimeavatar.ai/api/assets/public/characters/luciano-draven/portrait.png" },
+  ];
 
   if (!key()) return c.json({ avatars: fallback });
 
