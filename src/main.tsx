@@ -14,20 +14,22 @@ type AvatarChoice = { id: string; name: string; status: string; poster?: string 
 const STORE = "red-live-v4";
 const DEFAULT_ID = "seed-rin-ashfall";
 const PUBLIC_AVATARS: AvatarChoice[] = [
-  ["seed-rin-ashfall", "Rin Ashfall", "rin-ashfall"],
   ["seed-vesper-nyx", "Vesper Nyx", "vesper-nyx"],
+  ["seed-rin-ashfall", "Rin Ashfall", "rin-ashfall"],
   ["seed-professor-thistle", "Professor Thistle", "professor-thistle"],
-  ["seed-valko", "Valko", "valko"],
   ["seed-remy", "Remy", "remy"],
-  ["seed-koko", "Koko", "koko"],
   ["seed-luciano-draven", "Luciano Draven", "luciano-draven"],
+  ["seed-valko", "Valko", "valko"],
+  ["seed-koko", "Koko", "koko"],
   ["seed-mark-zuckerberg", "Mark Zuckerberg", "mark-zuckerberg"],
 ].map(([id, name, slug]) => ({
   id,
   name,
   status: "ready",
   poster: `https://realtimeavatar.ai/api/assets/public/characters/${slug}/portrait.png`,
-  idle: slug === "rin-ashfall" ? "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4" : undefined,
+  idle: id === DEFAULT_ID
+    ? "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4"
+    : undefined,
 }));
 const IDLE = PUBLIC_AVATARS[0].idle!;
 const POSTER = PUBLIC_AVATARS[0].poster!;
@@ -326,8 +328,8 @@ function App() {
                 client={client}
                 avatarId={avatarId}
                 mode={callMode}
-                poster={isDefault ? POSTER : avatarMedia.poster || portrait || undefined}
-                idleVideoUrl={isDefault ? IDLE : avatarMedia.idle || undefined}
+                poster={isDefault ? POSTER : avatarMedia.poster || portrait || PUBLIC_AVATARS.find((a) => a.id === avatarId)?.poster || undefined}
+                idleVideoUrl={isDefault ? IDLE : avatarMedia.idle || PUBLIC_AVATARS.find((a) => a.id === avatarId)?.idle || undefined}
                 style={{ width: "100%", height: "100%" }}
                 onStatusChange={setCallStatus}
                 onConnectionDetailsChange={setConnection}
