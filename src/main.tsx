@@ -16,12 +16,8 @@ const DEFAULT_ID = "seed-rin-ashfall";
 const PUBLIC_AVATARS: AvatarChoice[] = [
   ["seed-vesper-nyx", "Vesper Nyx", "vesper-nyx"],
   ["seed-rin-ashfall", "Rin Ashfall", "rin-ashfall"],
-  ["seed-professor-thistle", "Professor Thistle", "professor-thistle"],
   ["seed-remy", "Remy", "remy"],
   ["seed-luciano-draven", "Luciano Draven", "luciano-draven"],
-  ["seed-valko", "Valko", "valko"],
-  ["seed-koko", "Koko", "koko"],
-  ["seed-mark-zuckerberg", "Mark Zuckerberg", "mark-zuckerberg"],
 ].map(([id, name, slug]) => ({
   id,
   name,
@@ -331,11 +327,15 @@ function App() {
                 poster={isDefault ? POSTER : avatarMedia.poster || portrait || PUBLIC_AVATARS.find((a) => a.id === avatarId)?.poster || undefined}
                 idleVideoUrl={isDefault ? IDLE : avatarMedia.idle || PUBLIC_AVATARS.find((a) => a.id === avatarId)?.idle || undefined}
                 style={{ width: "100%", height: "100%" }}
-                onStatusChange={setCallStatus}
+                onStatusChange={(status) => {
+                  setCallStatus(status);
+                  if (status === "connecting" || status === "live") setCallError("");
+                }}
                 onConnectionDetailsChange={setConnection}
-                onEnded={() => {
+                onEnded={({ reason }) => {
                   setInCall(false);
-                  setCallStatus("");
+                  setCallStatus("ended");
+                  setCallError(reason ? String(reason) : "The live session ended.");
                   setConnection(null);
                 }}
               >
@@ -388,6 +388,15 @@ function App() {
           </div>
 
           <div className="heroActions">
+            {inCall && callError && (
+              <div className="callError" role="alert">
+                <strong>Live connection stopped</strong>
+                <span>{callError}</span>
+                <button onClick={() => { setCallError(""); setInCall(false); setTimeout(() => setInCall(true), 50); }}>
+                  Try again
+                </button>
+              </div>
+            )}
             {!inCall && (
               <button
                 className="primary"
