@@ -29,7 +29,7 @@ function LiveWebTools() {
         properties: { query: { type: "string", description: "The exact web search query." } },
         required: ["query"],
       },
-      execute: async ({ query }, { signal }) => {
+      execute: async ({ query }: { query: string }, { signal }) => {
         const response = await fetch("/api/web-search?q=" + encodeURIComponent(query), { signal });
         const data = await response.json();
         if (!response.ok) throw new Error(data?.error || "Web search failed");
