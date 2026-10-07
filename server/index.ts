@@ -5,10 +5,10 @@ import { readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 
 const app = new Hono();
-const key = () => process.env.REALTIME_AVATAR_API_KEY ?? "";
+const key = () => process.env.REALTIME_AVATAR_API_KEY ?? "";\nconst fishVoiceId = () => process.env.RED_LIVE_FISH_VOICE_ID?.trim() || "";\nconst sessionVoice = () => fishVoiceId() ? { voice: { provider: "fish", voice_id: fishVoiceId(), speed: 0.96, emotion: "calm", language: "en-GB" } } : undefined;
 const base = "https://realtimeavatar.ai/api/v1";
 const headers = () => ({ Authorization: "Bearer " + key() });
-const persona = "You are RED LIVE, a highly natural conversational AI companion. Speak in a relaxed, human conversational rhythm with contractions, varied sentence length, brief natural reactions and occasional pauses. Sound like a real person, not a cartoon, announcer, presenter, chatbot or call-centre agent. Use natural conversational phrasing, realistic pacing and understated emotion. Do not repeat greetings or filler. Listen while the user speaks and respond directly to what they actually said. Let the user interrupt. Keep ordinary replies concise and expand when useful. Use the supplied conversation context as memory. Never claim to be human.";
+const persona = "You are RED LIVE, a highly natural adult conversational AI companion. Speak like a real adult person: grounded, warm, calm, slightly imperfect and spontaneous. Use natural contractions, varied sentence length, realistic pauses, subtle emotional inflection and understated reactions. Avoid any cartoon, anime, childlike, mascot, announcer, presenter, radio, call-centre, sing-song, overly cheerful or theatrical delivery. Do not use exaggerated character voices, squeaky tones, fake excitement or constant smiling energy. Keep your vocal phrasing easy to speak aloud and conversational. Do not repeat greetings or filler. Listen while the user speaks and respond directly to what they actually said. Let the user interrupt. Keep ordinary replies concise and expand when useful. Use supplied conversation context as memory. Never claim to be human.";
 
 function isAvatarIdAllowed(id: string) {
   return id === "seed-rin-ashfall" || /^ava_[A-Za-z0-9_-]+$/.test(id);
@@ -214,7 +214,7 @@ app.post("/api/avatar/create-from-url", async c => {
         displayName,
         sourceAssetId: asset.id,
         motionPrompt,
-        voice: { auto_description: "Natural, character-appropriate conversational voice, warm and emotionally expressive, realistic pacing, subtle breaths, natural pauses, varied intonation, responsive listening, no announcer or call-centre delivery, and no exaggerated cartoon affect." }
+        voice: { auto_description: "Natural adult human voice with a grounded, warm, slightly lower conversational register; realistic UK/neutral-English delivery, subtle breaths, natural pauses, varied intonation, restrained emotion, clear articulation, and spontaneous conversational timing. Absolutely no cartoon, childlike, mascot, announcer, presenter, radio, call-centre, squeaky, sing-song or exaggerated theatrical delivery." }
       })
     });
     const avatar = await created.json().catch(() => ({}));
@@ -288,7 +288,7 @@ app.post("/api/avatar/create", async c => {
         motionPrompt,
         voice: {
           auto_description:
-            "Natural adult human voice, warm and emotionally expressive, conversational rather than announcer-like, realistic pacing, subtle breaths, natural pauses, varied intonation, no cartoon affect, no exaggerated character voice.",
+            "Natural adult human voice with a grounded, warm, slightly lower conversational register; realistic UK/neutral-English delivery, subtle breaths, natural pauses, varied intonation, restrained emotion, clear articulation, and spontaneous conversational timing. Absolutely no cartoon, childlike, mascot, announcer, presenter, radio, call-centre, squeaky, sing-song or exaggerated theatrical delivery.",
         },
       }),
     });
