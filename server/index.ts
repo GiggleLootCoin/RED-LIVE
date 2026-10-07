@@ -65,9 +65,9 @@ app.all("/api/realtime-avatar/*", realtimeAvatarHono({
           camera: true,
           listen: true,
           clientTools: true,
-          // Render the character live so speech produces real-time facial/body motion.
-          // The provider's generative backend is the supported live-video path.
-          video: { mode: "generative" },
+          // Use the avatar's generated idle/listening/gesture motion library.
+          // This is the stable default video path and keeps the character animated
+          // without requiring a separate generative-render capacity path.
           ...(sessionVoice() ? { voice: sessionVoice() } : {}),
           };
         })()
