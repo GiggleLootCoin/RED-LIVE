@@ -1,30 +1,38 @@
 # RED LIVE
 
-A mobile-first live AI avatar application.
+RED LIVE is the live-avatar application for persistent, hands-free AI conversations.
 
-## Live avatar
+Included:
+- Realtime talking avatar through Realtime Avatar + LiveKit
+- Full-duplex microphone conversation and interruption
+- Server-authorized camera capability
+- Custom portrait to live-avatar creation
+- Persistent local conversation history and saved memory
+- Saved memory synchronized into the secure live-session context
+- Optional OpenAI-compatible text-model adapter
+- Android-friendly installable web app
+- One Node/Hono service for both UI and secure API
 
-RED LIVE is wired to the Realtime Avatar SDK. The provider supplies the actual synchronized talking-head video, full-duplex voice, interruption and WebRTC transport; RED LIVE owns the product UI, memory and provider boundary. The SDK documentation confirms the browser/client + secure server split and full-duplex behavior. 
+The Realtime Avatar documentation confirms the browser/server split, full-duplex voice, interruption, camera authorization and custom portrait avatar workflow.
 
-### Server
-Set `REALTIME_AVATAR_API_KEY` only on the server. Never put it in a `VITE_` variable or public client code.
+## Deploy
 
-```bash
-npm install
-REALTIME_AVATAR_API_KEY=... npm run server
-```
+The repository includes render.yaml for a free Render web service. Render currently offers free web services, with idle spin-down and monthly limits.
 
-The server exposes `/api/realtime-avatar/*` and keeps the provider key private.
+Required secret:
+REALTIME_AVATAR_API_KEY
 
-### Client
-The client is Vite + React and stores explicit local memory/conversation state on-device. It can install as a PWA on Android.
+Optional text-model variables:
+LLM_BASE_URL
+LLM_API_KEY
+LLM_MODEL
 
-## Custom avatars
+Never put the realtime provider key in browser code. The provider requires it to stay server-side.
 
-The UI accepts an uploaded portrait now. The production provider path for turning that portrait into a live avatar is intentionally server-side; the provider's avatar-creation API accepts a portrait image and generates the motion assets needed for live calls.
+## Local
 
-## Important
+Run npm install, then set REALTIME_AVATAR_API_KEY on the server and run npm start. Open the resulting localhost address. Microphone access requires HTTPS or localhost.
 
-The GitHub Pages build is the free static client. A realtime WebRTC call requires the secure server route above; GitHub Pages cannot hold private server secrets or run a persistent API server.
+## Cost
 
-For a zero-cost development path, use the provider's Sandbox allowance. Current provider documentation lists 17 free realtime minutes/month and no card requirement. Production usage is paid.
+Realtime Avatar currently provides a limited free Sandbox allowance; longer realtime usage is paid. Render provides a free web-service tier with limits. RED LIVE itself does not add a subscription or paywall.
