@@ -33,6 +33,7 @@ app.all("/api/realtime-avatar/*", realtimeAvatarHono({
           maxSeconds: 120,
           camera: true,
           listen: true,
+          clientTools: true,
           // Use the realtime generative renderer so the character is
           // visibly animated while speaking.
           video: { mode: "generative" },
