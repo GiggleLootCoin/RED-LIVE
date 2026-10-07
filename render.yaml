@@ -3,6 +3,7 @@ services:
     name: red-live
     runtime: node
     plan: free
+    healthCheckPath: /api/health
     buildCommand: npm install && npm run build
     startCommand: npm run server
     envVars:
@@ -15,4 +16,6 @@ services:
       - key: LLM_API_KEY
         sync: false
       - key: LLM_MODEL
+        sync: false
+      - key: TAVILY_API_KEY
         sync: false
