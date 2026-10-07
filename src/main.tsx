@@ -70,6 +70,7 @@ function App() {
   const [callMode, setCallMode] = useState<"avatar" | "voice">("avatar");
   const [providerStatus, setProviderStatus] = useState("not checked");
   const [callStatus, setCallStatus] = useState("");
+  const [callError, setCallError] = useState("");
   const [connection, setConnection] =
     useState<AvatarConnectionDetails | null>(null);
   const [modal, setModal] = useState<
@@ -283,7 +284,7 @@ function App() {
 
   const checkProvider = async () => {
     try {
-      const r = await fetch("/api/provider-check");
+      const r = await fetch("/api/live-diagnostic");
       const d = await r.json();
       setProviderStatus(d.ok ? "ready" : `${d.avatar || "unavailable"} / ${d.credits || "unavailable"}`);
     } catch {
@@ -322,10 +323,8 @@ function App() {
     <div className="app">
       <header>
         <div>
-          <div className="logo">
-            RED <b>LIVE</b>
-          </div>
-          <div className="tag">Face-to-face AI • voice • vision • memory</div>
+          <div className="logoMark"><span>R</span><div><div className="logo">RED <b>LIVE</b></div><div className="tag">FACE-TO-FACE AI STUDIO</div></div></div>
+          <div className="tag">VOICE • VISION • MEMORY • WEB</div>
         </div>
         <button className="ghost" onClick={() => setModal("settings")}>
           ⚙
