@@ -42,7 +42,7 @@ app.all("/api/realtime-avatar/*", realtimeAvatarHono({
   // still keeps the API key server-side.
   // Session policy below is the authoritative avatar allowlist/readiness gate.
   // The adapter's authorize hook does not receive avatarId in its documented shape.
-  authorize: () => undefined,
+  authorize: ({ operation }) => operation === "connect" || operation === "end" ? undefined : new Response("Not found", { status: 404 }),
   session: async ({ request, avatarId }) =>
     isAvatarIdAllowed(avatarId)
       ? await (async () => {
