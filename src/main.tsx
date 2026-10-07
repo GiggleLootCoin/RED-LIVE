@@ -296,7 +296,9 @@ function App() {
       </header>
 
       <main>
-        <section className="heroStage">\n          <div className="presenceLine"><span className="presenceDot"></span><span>{inCall ? "LIVE CONVERSATION" : "RED LIVE"}</span><span className="presenceHint">{inCall ? "Full duplex" : "Ready when you are"}</span></div>\n          <section className="hero">
+        <section className="heroStage">
+          <div className="presenceLine"><span className="presenceDot"></span><span>{inCall ? "LIVE CONVERSATION" : "RED LIVE"}</span><span className="presenceHint">{inCall ? "Full duplex" : "Ready when you are"}</span></div>
+          <section className="hero">
           <div className="avatarWrap">
             {inCall ? (
               <AvatarCall
