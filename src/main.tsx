@@ -27,7 +27,7 @@ const PUBLIC_AVATARS: AvatarChoice[] = [
   name,
   status: "ready",
   poster: `https://realtimeavatar.ai/api/assets/public/characters/${slug}/portrait.png`,
-  idle: `https://realtimeavatar.ai/api/assets/public/characters/${slug}/idle-10s.mp4`,
+  idle: slug === "rin-ashfall" ? "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4" : undefined,
 }));
 const IDLE = PUBLIC_AVATARS[0].idle!;
 const POSTER = PUBLIC_AVATARS[0].poster!;
