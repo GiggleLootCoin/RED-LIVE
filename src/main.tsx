@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { AvatarCall, createProxyClient, useAvatarCamera, type AvatarConnectionDetails } from "realtime-avatar/react";
+import { AvatarCall, createProxyClient, useAvatarCamera, useCharacterTools, type AvatarConnectionDetails } from "realtime-avatar/react";
 import "./style.css";
 
 type Msg = { role: "user" | "assistant"; content: string; ts: number };
@@ -19,6 +19,30 @@ const RIN: Avatar = {
 const read = () => {
   try { return JSON.parse(localStorage.getItem(STORE) || "{}"); } catch { return {}; }
 };
+
+function LiveWebTools() {
+  const tools = useCharacterTools({
+    web_search: {
+      description: "Search the live web for current, factual information whenever the user asks about recent events, news, prices, people, products, places, websites, or anything that may have changed. Always use this tool rather than guessing. Return concise source-backed results.",
+      parameters: {
+        type: "object",
+        properties: { query: { type: "string", description: "The exact web search query to run." } },
+        required: ["query"],
+      },
+      execute: async ({ query }, { signal }: { signal: AbortSignal }) => {
+        const response = await fetch("/api/web-search?q=" + encodeURIComponent(query), { signal });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data?.error || "Web search failed");
+        return JSON.stringify((data.results || []).slice(0, 5).map((r: any) => ({
+          title: r.title,
+          url: r.url,
+          snippet: r.snippet,
+        })));
+      },
+    },
+  });
+  return tools.status === "error" ? <span className="toolStatus">WEB OFFLINE</span> : <span className="toolStatus">{tools.status === "ready" ? "WEB READY" : "WEB CONNECTING"}</span>;
+}
 
 function CameraButton({ active }: { active: boolean }) {
   const camera = useAvatarCamera({ allowed: true, active });
@@ -165,7 +189,7 @@ function App() {
               style={{width:"100%",height:"100%"}} onStatusChange={s => {setCallStatus(s); if(s==="live") setCallError("");}}
               onConnectionDetailsChange={setConnection}
               onEnded={({reason}) => {setInCall(false);setCallStatus("ended");setCallError(reason ? String(reason) : "The session ended.");setConnection(null);}}>
-              {call => <div className="liveBar"><CameraButton active={inCall}/><div className="liveState"><b>{call.status === "waiting" ? "WAITING " + call.queuePosition : call.status.toUpperCase()}</b>{connection?.localQuality && <small> · {connection.localQuality}</small>}</div><button className="endButton" onClick={call.end}>End</button></div>}
+              {call => <><LiveWebTools/><div className="liveBar"><CameraButton active={inCall}/><div className="liveState"><b>{call.status === "waiting" ? "WAITING " + call.queuePosition : call.status.toUpperCase()}</b>{connection?.localQuality && <small> · {connection.localQuality}</small>}</div><button className="endButton" onClick={call.end}>End</button></div>}
             </AvatarCall> : idle ? <video className="avatarMedia" src={idle} poster={poster || undefined} autoPlay muted loop playsInline/> : poster ? <img className="avatarMedia" src={poster} alt={selected.name}/> : <div className="noAvatar"><b>{selected.name}</b><span>Live avatar</span></div>}
             <div className="namePlate"><b>{selected.name}</b><span>{avatarStatus === "ready" ? "LIVE-READY" : avatarStatus}</span></div>
           </div>
