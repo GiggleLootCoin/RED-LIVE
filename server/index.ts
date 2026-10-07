@@ -26,6 +26,12 @@ function isPublicFigureLabel(value: string) {
   return /(^|\s)(celebrity|politician|president|prime minister|king|queen|world leader|public figure)($|\s)/i.test(value);
 }
 
+
+function isAvatarSafeForREDLive(avatar: any) {
+  const label = String(avatar?.displayName || avatar?.name || "");
+  return !isPublicFigureLabel(label) && (avatar?.status === "ready" || avatar?.id === "seed-rin-ashfall");
+}
+
 function cookieContext(request: Request) {
   const raw = request.headers.get("cookie")?.match(/red_memory=([^;]+)/)?.[1];
   if (!raw) return [];
