@@ -352,9 +352,7 @@ app.post("/api/chat", async c => {
           messages: [
             {
               role: "system",
-              content: persona + (memory ? "
-User memory:
-" + memory : ""),
+              content: persona + (memory ? "\nUser memory:\n" + memory : ""),
             },
             ...messages.map((m: any) => ({
               role: m.role === "user" ? "user" : "assistant",
