@@ -254,6 +254,28 @@ function App() {
     }
   };
 
+  const createAvatarFromUrl = async (displayName: string, imageUrl: string) => {
+    setBusy(true);
+    setNotice(`Creating ${displayName}'s live avatar…`);
+    try {
+      const r = await fetch("/api/avatar/create-from-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName, imageUrl, motionPrompt: "Photorealistic natural human presence. Subtle breathing, eye movement, gentle head turns and believable conversational expression. No exaggerated motion." })
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Avatar creation failed.");
+      setAvatarId(d.id);
+      setAvatarMedia({ poster: d.posterUrl || imageUrl, idle: d.idleVideoUrl || undefined });
+      setAvatarStatus(d.status || "preprocessing");
+      setNotice(`${displayName} is being animated. RED LIVE will add the live avatar when it is ready.`);
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : "Avatar creation failed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const isDefault = avatarId === DEFAULT_ID;
 
   const checkProvider = async () => {
@@ -444,13 +466,11 @@ function App() {
 
         <section className="humanVision">
   <div className="humanVisionHead">
-    <div><span className="eyebrow">NEXT-GENERATION AVATARS</span><h2>10 human characters. Built to feel real.</h2><p>Natural faces, believable styling, subtle expressions and distinct personalities.</p></div>
-    <span className="humanVisionBadge">PHOTOREAL</span>
+    <div><span className="eyebrow">HUMAN AVATAR STUDIO</span><h2>Choose your next live person</h2><p>Pick a photoreal portrait. RED LIVE can turn it into a real animated conversational avatar.</p></div>
+    <span className="humanVisionBadge">10 PEOPLE</span>
   </div>
-  <div className="humanVisionGrid">
-    <div className="humanVisionCard"><div className="humanSilhouette h1"><span>1</span></div><b>Ava</b><small>British • 20s</small><em>Warm / curious</em></div><div className="humanVisionCard"><div className="humanSilhouette h2"><span>2</span></div><b>Maya</b><small>South Asian • 30s</small><em>Sharp / friendly</em></div><div className="humanVisionCard"><div className="humanSilhouette h3"><span>3</span></div><b>Sophie</b><small>European • 30s</small><em>Calm / witty</em></div><div className="humanVisionCard"><div className="humanSilhouette h4"><span>4</span></div><b>Jordan</b><small>Black British • 30s</small><em>Confident / relaxed</em></div><div className="humanVisionCard"><div className="humanSilhouette h5"><span>5</span></div><b>Daniel</b><small>British • 30s</small><em>Thoughtful / dry</em></div><div className="humanVisionCard"><div className="humanSilhouette h6"><span>6</span></div><b>Leah</b><small>Mixed heritage • 20s</small><em>Creative / warm</em></div><div className="humanVisionCard"><div className="humanSilhouette h7"><span>7</span></div><b>Marcus</b><small>Black • 40s</small><em>Grounded / direct</em></div><div className="humanVisionCard"><div className="humanSilhouette h8"><span>8</span></div><b>Elena</b><small>Mediterranean • 30s</small><em>Expressive / bright</em></div><div className="humanVisionCard"><div className="humanSilhouette h9"><span>9</span></div><b>Ryan</b><small>British • 20s</small><em>Easygoing / curious</em></div><div className="humanVisionCard"><div className="humanSilhouette h10"><span>10</span></div><b>Nadia</b><small>Middle Eastern • 30s</small><em>Focused / warm</em></div>
-  </div>
-  <p className="humanVisionNote">These are the ten character designs for the real-avatar generation layer. The live provider only treats a character as callable after its avatar assets are generated and ready.</p>
+  <div className="humanVisionGrid"><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Ava", "https://randomuser.me/api/portraits/women/44.jpg")}><img src="https://randomuser.me/api/portraits/women/44.jpg" alt="Ava" loading="lazy"/><b>Ava</b><small>British • 20s</small><em>Warm / curious</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Maya", "https://randomuser.me/api/portraits/women/65.jpg")}><img src="https://randomuser.me/api/portraits/women/65.jpg" alt="Maya" loading="lazy"/><b>Maya</b><small>South Asian • 30s</small><em>Sharp / friendly</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Sophie", "https://randomuser.me/api/portraits/women/68.jpg")}><img src="https://randomuser.me/api/portraits/women/68.jpg" alt="Sophie" loading="lazy"/><b>Sophie</b><small>European • 30s</small><em>Calm / witty</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Jordan", "https://randomuser.me/api/portraits/men/32.jpg")}><img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Jordan" loading="lazy"/><b>Jordan</b><small>Black British • 30s</small><em>Confident / relaxed</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Daniel", "https://randomuser.me/api/portraits/men/41.jpg")}><img src="https://randomuser.me/api/portraits/men/41.jpg" alt="Daniel" loading="lazy"/><b>Daniel</b><small>British • 30s</small><em>Thoughtful / dry</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Leah", "https://randomuser.me/api/portraits/women/32.jpg")}><img src="https://randomuser.me/api/portraits/women/32.jpg" alt="Leah" loading="lazy"/><b>Leah</b><small>Mixed heritage • 20s</small><em>Creative / warm</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Marcus", "https://randomuser.me/api/portraits/men/52.jpg")}><img src="https://randomuser.me/api/portraits/men/52.jpg" alt="Marcus" loading="lazy"/><b>Marcus</b><small>Black • 40s</small><em>Grounded / direct</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Elena", "https://randomuser.me/api/portraits/women/47.jpg")}><img src="https://randomuser.me/api/portraits/women/47.jpg" alt="Elena" loading="lazy"/><b>Elena</b><small>Mediterranean • 30s</small><em>Expressive / bright</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Ryan", "https://randomuser.me/api/portraits/men/22.jpg")}><img src="https://randomuser.me/api/portraits/men/22.jpg" alt="Ryan" loading="lazy"/><b>Ryan</b><small>British • 20s</small><em>Easygoing / curious</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Nadia", "https://randomuser.me/api/portraits/women/25.jpg")}><img src="https://randomuser.me/api/portraits/women/25.jpg" alt="Nadia" loading="lazy"/><b>Nadia</b><small>Middle Eastern • 30s</small><em>Focused / warm</em><span>MAKE LIVE</span></button></div>
+  <p className="humanVisionNote">Creating a live person sends the selected portrait to the avatar provider, which generates the idle animation and motion library. The generated avatar becomes selectable when its status reaches ready.</p>
 </section>
 
 <section className="characters">
