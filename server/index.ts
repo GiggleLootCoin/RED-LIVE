@@ -21,6 +21,10 @@ function cookieContext(request: Request) {
 
 app.all("/api/realtime-avatar/*", realtimeAvatarHono({
   apiKey: key,
+  authorize: ({ operation }) =>
+    operation === "connect" || operation === "end"
+      ? undefined
+      : new Response("Not found", { status: 404 }),
   session: async ({ request, avatarId }) =>
     avatarId === "seed-rin-ashfall" || avatarId.startsWith("seed-") || avatarId.startsWith("ava_")
       ? {
@@ -29,7 +33,8 @@ app.all("/api/realtime-avatar/*", realtimeAvatarHono({
           maxSeconds: 120,
           camera: true,
           listen: true,
-          video: { mode: "generative" },
+          // Use the generated portrait loop + motion library for the most
+          // reliable call path. Generative video is intentionally not required.
           voice: {
             speed: 1.0,
             emotion: "warm, expressive, natural, conversational, emotionally present",
