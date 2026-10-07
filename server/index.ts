@@ -15,7 +15,8 @@ function isAvatarIdAllowed(id: string) {
 }
 
 async function getProviderAvatar(id: string) {
-  if (id === "seed-rin-ashfall") return { id:"seed-rin-ashfall", status:"ready", displayName:"Rin Ashfall", posterUrl:"https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/portrait.png", idleVideoUrl:"https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4" };\n  if (!key() || !isAvatarIdAllowed(id)) return null;
+  if (id === "seed-rin-ashfall") return { id:"seed-rin-ashfall", status:"ready", displayName:"Rin Ashfall", posterUrl:"https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/portrait.png", idleVideoUrl:"https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4" };
+  if (!key() || !isAvatarIdAllowed(id)) return null;
   const r = await fetch(base + "/avatars/" + encodeURIComponent(id), { headers: headers() });
   if (!r.ok) return null;
   return await r.json().catch(() => null);
@@ -113,7 +114,8 @@ app.post("/api/memory", async c => {
     // request, and browsers impose tight cookie/header limits.
     const context = [
       ...(memory
-        ? [{ role: "system", content: "User-saved memory:\n" + memory }]
+        ? [{ role: "system", content: "User-saved memory:
+" + memory }]
         : []),
       ...messages.slice(-12).map((m: any) => ({
         role: m.role === "user" ? "user" : "assistant",
@@ -340,7 +342,9 @@ app.post("/api/chat", async c => {
           messages: [
             {
               role: "system",
-              content: persona + (memory ? "\nUser memory:\n" + memory : ""),
+              content: persona + (memory ? "
+User memory:
+" + memory : ""),
             },
             ...messages.map((m: any) => ({
               role: m.role === "user" ? "user" : "assistant",
