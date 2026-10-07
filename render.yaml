@@ -6,6 +6,8 @@ services:
     buildCommand: npm install && npm run build
     startCommand: npm run server
     envVars:
+      - key: NODE_ENV
+        value: production
       - key: REALTIME_AVATAR_API_KEY
         sync: false
       - key: LLM_BASE_URL
