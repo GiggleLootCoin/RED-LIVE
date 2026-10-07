@@ -9,6 +9,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: "22.23.3"
       - key: REALTIME_AVATAR_API_KEY
         sync: false
       - key: LLM_BASE_URL
