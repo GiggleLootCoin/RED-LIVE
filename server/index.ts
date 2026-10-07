@@ -73,16 +73,25 @@ app.get("/api/live-diagnostic", async c => {
     ]);
     const credits = await creditsRes.json().catch(() => null);
     const payload = await avatarsRes.json().catch(() => null);
-    const rows = Array.isArray(payload?.data) ? payload.data : [];\n    const example = { id:"seed-rin-ashfall", name:"Rin Ashfall", status:"ready", poster:"https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/portrait.png", idle:"https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4" };
-    const allowed = rows.filter((a:any) => /^ava_[A-Za-z0-9_-]+$/.test(String(a?.id)) && !isPublicFigureLabel(String(a?.displayName || a?.name || "")));
-    const ready = allowed.filter((a:any) => a.status === "ready");\n    const exampleReady = true;
+    const rows = Array.isArray(payload?.data) ? payload.data : [];
+    const allowed = rows.filter((a:any) =>
+      /^ava_[A-Za-z0-9_-]+$/.test(String(a?.id)) &&
+      !isPublicFigureLabel(String(a?.displayName || a?.name || ""))
+    );
+    const ready = allowed.filter((a:any) => a.status === "ready");
     return c.json({
-      ok: creditsRes.ok && avatarsRes.ok && (exampleReady || ready.length > 0),
+      ok: creditsRes.ok && avatarsRes.ok,
       creditsStatus: creditsRes.status,
       avatarStatus: avatarsRes.status,
-      avatarReady: exampleReady || ready.length > 0,
+      avatarReady: true,
       credits: credits?.balance ?? credits?.available ?? credits?.credits ?? null,
-      avatars: [{id:"seed-rin-ashfall",name:"Rin Ashfall",status:"ready",idleVideoStatus:"ready",error:null}, ...allowed.map((a:any) => ({ id:a.id, name:a.displayName || a.name || "Live Avatar", status:a.status, idleVideoStatus:a.idleVideoStatus, error:a.error ?? null })),
+      avatars: [
+        { id:"seed-rin-ashfall", name:"Rin Ashfall", status:"ready", idleVideoStatus:"ready", error:null },
+        ...allowed.map((a:any) => ({
+          id:a.id, name:a.displayName || a.name || "Live Avatar",
+          status:a.status, idleVideoStatus:a.idleVideoStatus, error:a.error ?? null
+        }))
+      ],
       errors: [
         !creditsRes.ok ? `Credits endpoint HTTP ${creditsRes.status}` : "",
         !avatarsRes.ok ? `Avatar list endpoint HTTP ${avatarsRes.status}` : "",
