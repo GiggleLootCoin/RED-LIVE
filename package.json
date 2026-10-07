@@ -18,7 +18,8 @@
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "realtime-avatar": "0.20.0",
-    "@livekit/components-react": "2.9.21"
+    "@livekit/components-react": "2.9.24",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "tsx": "4.20.5",
