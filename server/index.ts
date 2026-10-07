@@ -41,6 +41,41 @@ app.all("/api/realtime-avatar/*", realtimeAvatarHono({
       : new Response("Avatar not allowed", { status: 403 }),
 }));
 
+app.get("/api/live-diagnostic", async c => {
+  if (!key()) return c.json({ ok: false, error: "REALTIME_AVATAR_API_KEY is not configured on the server." }, 503);
+  try {
+    const [creditsRes, avatarRes] = await Promise.all([
+      fetch(base + "/credits/balance", { headers: headers() }),
+      fetch(base + "/avatars/seed-rin-ashfall", { headers: headers() }),
+    ]);
+    const creditsText = await creditsRes.text();
+    const avatarText = await avatarRes.text();
+    let credits:any = null, avatar:any = null;
+    try { credits = JSON.parse(creditsText); } catch {}
+    try { avatar = JSON.parse(avatarText); } catch {}
+    return c.json({
+      ok: creditsRes.ok && avatarRes.ok && avatar?.status === "ready",
+      creditsStatus: creditsRes.status,
+      avatarStatus: avatarRes.status,
+      avatarReady: avatar?.status === "ready",
+      credits: credits?.balance ?? credits?.available ?? credits?.credits ?? null,
+      avatar: avatar ? {
+        id: avatar.id,
+        status: avatar.status,
+        idleVideoStatus: avatar.idleVideoStatus,
+        error: avatar.error ?? null
+      } : null,
+      errors: [
+        !creditsRes.ok ? `Credits endpoint HTTP ${creditsRes.status}` : "",
+        !avatarRes.ok ? `Rin endpoint HTTP ${avatarRes.status}` : "",
+        avatar && avatar.status !== "ready" ? `Rin avatar status: ${avatar.status}` : ""
+      ].filter(Boolean)
+    });
+  } catch (e) {
+    return c.json({ ok:false, error:e instanceof Error ? e.message : "Provider check failed" }, 502);
+  }
+});
+
 app.post("/api/memory", async c => {
   try {
     const body = await c.req.json();
