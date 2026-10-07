@@ -166,6 +166,41 @@ app.get("/api/avatars", async c => {
   }
 });
 
+app.post("/api/avatar/create-from-url", async c => {
+  try {
+    if (!key()) return c.json({ error: "Live avatar API key is not configured." }, 503);
+    const body = await c.req.json();
+    const imageUrl = typeof body.imageUrl === "string" ? body.imageUrl : "";
+    const displayName = typeof body.displayName === "string" ? body.displayName.slice(0, 80) : "RED LIVE Human";
+    const motionPrompt = typeof body.motionPrompt === "string" ? body.motionPrompt.slice(0, 700) : "Natural subtle head movement, relaxed breathing, believable eye movement, warm conversational expression.";
+    if (!/^https:\/\//i.test(imageUrl)) return c.json({ error: "A secure image URL is required." }, 400);
+
+    const assetRes = await fetch(base + "/assets/remote", {
+      method: "POST",
+      headers: { ...headers(), "Content-Type": "application/json" },
+      body: JSON.stringify({ kind: "image", remoteUrl: imageUrl, originalFilename: displayName.replace(/[^a-z0-9]+/gi, "-").toLowerCase() + ".jpg" })
+    });
+    const asset = await assetRes.json().catch(() => ({}));
+    if (!assetRes.ok) return c.json({ error: asset?.error || "Could not register portrait.", details: asset }, assetRes.status);
+
+    const avatarRes = await fetch(base + "/avatars", {
+      method: "POST",
+      headers: { ...headers(), "Content-Type": "application/json" },
+      body: JSON.stringify({
+        displayName,
+        sourceAssetId: asset.id,
+        motionPrompt,
+        voice: { auto_description: "Natural, warm, conversational human voice with relaxed pacing and expressive delivery." }
+      })
+    });
+    const avatar = await avatarRes.json().catch(() => ({}));
+    if (!avatarRes.ok) return c.json({ error: avatar?.error || "Could not create avatar.", details: avatar }, avatarRes.status);
+    return c.json({ id: avatar.id, name: avatar.displayName || displayName, status: avatar.status, posterUrl: avatar.posterUrl || avatar.poster_url || null, idleVideoUrl: avatar.idleVideoUrl || avatar.idle_video_url || null });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : "Avatar creation failed." }, 500);
+  }
+});
+
 app.post("/api/avatar/create", async c => {
   if (!key()) {
     return c.json({ error: "Realtime Avatar server key is not configured." }, 503);
