@@ -23,25 +23,23 @@ const read = () => {
 function LiveWebTools() {
   const tools = useCharacterTools({
     web_search: {
-      description: "Search the live web for current, factual information whenever the user asks about recent events, news, prices, people, products, places, websites, or anything that may have changed. Always use this tool rather than guessing. Return concise source-backed results.",
+      description: "Search the live web for current information whenever the user asks about news, recent events, prices, people, products, places, websites, or anything that may have changed. Use this instead of guessing. Return concise source-backed results.",
       parameters: {
         type: "object",
-        properties: { query: { type: "string", description: "The exact web search query to run." } },
+        properties: { query: { type: "string", description: "The exact web search query." } },
         required: ["query"],
       },
-      execute: async ({ query }, { signal }: { signal: AbortSignal }) => {
+      execute: async ({ query }, { signal }) => {
         const response = await fetch("/api/web-search?q=" + encodeURIComponent(query), { signal });
         const data = await response.json();
         if (!response.ok) throw new Error(data?.error || "Web search failed");
         return JSON.stringify((data.results || []).slice(0, 5).map((r: any) => ({
-          title: r.title,
-          url: r.url,
-          snippet: r.snippet,
+          title: r.title, url: r.url, snippet: r.snippet
         })));
       },
     },
   });
-  return tools.status === "error" ? <span className="toolStatus">WEB OFFLINE</span> : <span className="toolStatus">{tools.status === "ready" ? "WEB READY" : "WEB CONNECTING"}</span>;
+  return <span className="toolStatus">{tools.status === "ready" ? "WEB READY" : tools.status === "registering" ? "WEB CONNECTING" : tools.status === "error" ? "WEB ERROR" : "WEB STANDBY"}</span>;
 }
 
 function CameraButton({ active }: { active: boolean }) {
