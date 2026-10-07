@@ -1,2 +1,3 @@
 import {defineConfig} from "vite";
-export default defineConfig({base:"/RED-LIVE/"});
+import react from "@vitejs/plugin-react";
+export default defineConfig({plugins:[react()],base:"/RED-LIVE/"});

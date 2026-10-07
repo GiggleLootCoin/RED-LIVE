@@ -1,0 +1,25 @@
+{
+  "name":"red-live",
+  "private":true,
+  "version":"0.2.0",
+  "type":"module",
+  "scripts":{
+    "dev":"vite",
+    "build":"tsc --noEmit && vite build",
+    "preview":"vite preview",
+    "server":"tsx server/index.ts"
+  },
+  "dependencies":{
+    "@vitejs/plugin-react":"5.0.4",
+    "hono":"4.9.7",
+    "livekit-client":"2.22.3",
+    "react":"19.2.0",
+    "react-dom":"19.2.0",
+    "realtime-avatar":"0.20.0"
+  },
+  "devDependencies":{
+    "tsx":"4.20.5",
+    "typescript":"5.9.2",
+    "vite":"7.1.7"
+  }
+}
