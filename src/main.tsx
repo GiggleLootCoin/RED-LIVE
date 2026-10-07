@@ -60,6 +60,8 @@ function App() {
   );
   const [text, setText] = useState("");
   const [inCall, setInCall] = useState(false);
+  const [callMode, setCallMode] = useState<"avatar" | "voice">("avatar");
+  const [providerStatus, setProviderStatus] = useState("not checked");
   const [callStatus, setCallStatus] = useState("");
   const [connection, setConnection] =
     useState<AvatarConnectionDetails | null>(null);
@@ -229,6 +231,16 @@ function App() {
 
   const isDefault = avatarId === DEFAULT_ID;
 
+  const checkProvider = async () => {
+    try {
+      const r = await fetch("/api/provider-check");
+      const d = await r.json();
+      setProviderStatus(d.ok ? "ready" : `${d.avatar || "unavailable"} / ${d.credits || "unavailable"}`);
+    } catch {
+      setProviderStatus("server unreachable");
+    }
+  };
+
   const checkMic = async () => {
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error("Microphone access is unavailable in this browser.");
@@ -277,6 +289,7 @@ function App() {
               <AvatarCall
                 client={client}
                 avatarId={avatarId}
+                mode={callMode}
                 poster={isDefault ? POSTER : avatarMedia.poster || portrait || undefined}
                 idleVideoUrl={isDefault ? IDLE : avatarMedia.idle || undefined}
                 style={{ width: "100%", height: "100%" }}
@@ -341,7 +354,7 @@ function App() {
               <button
                 className="primary"
                 disabled={avatarStatus !== "ready"}
-                onClick={() => setInCall(true)}
+                onClick={() => { setCallMode("avatar"); setInCall(true); }}
               >
                 {avatarStatus === "ready"
                   ? "Start live conversation"
@@ -495,6 +508,13 @@ function App() {
               Live voice uses the browser microphone over HTTPS. Use “Test microphone” before a call if Brave has not granted access. The provider
               key remains server-side.
             </p>
+            <button onClick={checkMic}>Test microphone</button>
+            <button onClick={checkProvider}>Check live provider</button>
+            <button onClick={() => { setCallMode("voice"); setModal(null); setInCall(true); }}>
+              Start voice-only fallback
+            </button>
+            <p>Microphone: <b>{micReady === null ? "not tested" : micReady ? "ready" : "blocked"}</b></p>
+            <p>Live provider: <b>{providerStatus}</b></p>
             <button onClick={() => setModal("avatar")}>
               Create/change avatar
             </button>
