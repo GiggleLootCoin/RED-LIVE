@@ -76,6 +76,28 @@ app.get("/api/live-diagnostic", async c => {
   }
 });
 
+app.get("/api/live-diagnostic", async c => {
+  if (!key()) return c.json({ ok: false, error: "Live avatar API key is not configured." }, 503);
+  try {
+    const [creditsRes, avatarRes] = await Promise.all([
+      fetch(base + "/credits/balance", { headers: headers() }),
+      fetch(base + "/avatars/seed-rin-ashfall", { headers: headers() }),
+    ]);
+    const avatar = await avatarRes.json().catch(() => null);
+    const credits = await creditsRes.json().catch(() => null);
+    return c.json({
+      ok: creditsRes.ok && avatarRes.ok && avatar?.status === "ready",
+      creditsStatus: creditsRes.status,
+      avatarStatus: avatarRes.status,
+      avatarReady: avatar?.status === "ready",
+      credits: credits?.balance ?? credits?.available ?? null,
+      avatar: avatar ? { id: avatar.id, status: avatar.status, idleVideoStatus: avatar.idleVideoStatus, error: avatar.error ?? null } : null
+    });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : "Provider check failed" }, 502);
+  }
+});
+
 app.post("/api/memory", async c => {
   try {
     const body = await c.req.json();
