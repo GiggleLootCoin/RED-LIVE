@@ -1,638 +1,215 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import {
-  AvatarCall,
-  createProxyClient,
-  useAvatarCamera,
-  type AvatarConnectionDetails,
-} from "realtime-avatar/react";
+import { AvatarCall, createProxyClient, useAvatarCamera, type AvatarConnectionDetails } from "realtime-avatar/react";
 import "./style.css";
 
 type Msg = { role: "user" | "assistant"; content: string; ts: number };
-type AvatarChoice = { id: string; name: string; status: string; poster?: string | null; idle?: string | null };
+type Avatar = { id: string; name: string; status: string; poster?: string | null; idle?: string | null };
 
-const STORE = "red-live-v4";
+const STORE = "red-live-v5";
 const DEFAULT_ID = "seed-rin-ashfall";
-const PUBLIC_AVATARS: AvatarChoice[] = [{
+const RIN: Avatar = {
   id: DEFAULT_ID,
   name: "Rin Ashfall",
   status: "ready",
   poster: "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/portrait.png",
   idle: "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4",
-}];
-const IDLE = PUBLIC_AVATARS[0].idle!;
-const POSTER = PUBLIC_AVATARS[0].poster!;
-
-const read = () => {
-  try {
-    return JSON.parse(localStorage.getItem(STORE) || "{}");
-  } catch {
-    return {};
-  }
 };
 
-function CameraControl({ active }: { active: boolean }) {
+const read = () => {
+  try { return JSON.parse(localStorage.getItem(STORE) || "{}"); } catch { return {}; }
+};
+
+function CameraButton({ active }: { active: boolean }) {
   const camera = useAvatarCamera({ allowed: true, active });
-  return (
-    <button
-      className="cameraButton"
-      disabled={!camera.available}
-      aria-pressed={camera.enabled}
-      onClick={() => void camera.toggle()}
-    >
-      {camera.pending
-        ? "Cancel camera request"
-        : camera.enabled
-          ? "Stop camera"
-          : camera.error
-            ? "Camera unavailable"
-            : "Share camera"}
-    </button>
-  );
+  return <button className="smallButton" disabled={!camera.available} onClick={() => void camera.toggle()}>
+    {camera.pending ? "Cancel" : camera.enabled ? "Camera on" : camera.error ? "Camera unavailable" : "Share camera"}
+  </button>;
 }
 
 function App() {
   const saved = read();
-  const [messages, setMessages] = useState<Msg[]>(saved.messages || []);
-  const [memory, setMemory] = useState(saved.memory || "");
   const [avatarId, setAvatarId] = useState(saved.avatarId || DEFAULT_ID);
-  const [portrait, setPortrait] = useState("");
-  const [avatarMedia, setAvatarMedia] = useState<{ poster?: string; idle?: string }>({});
-  const [avatars, setAvatars] = useState<AvatarChoice[]>(PUBLIC_AVATARS);
-  const [micReady, setMicReady] = useState<boolean | null>(null);
   const [avatarStatus, setAvatarStatus] = useState(saved.avatarStatus || "ready");
-  const [name, setName] = useState(saved.name || "RED");
-  const [motion, setMotion] = useState(
-    "Natural subtle idle movement, relaxed expression, occasional gentle head movement."
-  );
-  const [text, setText] = useState("");
+  const [selected, setSelected] = useState<Avatar>(saved.avatar || RIN);
+  const [avatars, setAvatars] = useState<Avatar[]>([RIN]);
   const [inCall, setInCall] = useState(false);
-  const [callMode, setCallMode] = useState<"avatar" | "voice">("avatar");
-  const [providerStatus, setProviderStatus] = useState("not checked");
   const [callStatus, setCallStatus] = useState("");
   const [callError, setCallError] = useState("");
-  const [connection, setConnection] =
-    useState<AvatarConnectionDetails | null>(null);
-  const [modal, setModal] = useState<
-    "memory" | "avatar" | "web" | "settings" | null
-  >(null);
-  const [busy, setBusy] = useState(false);
+  const [connection, setConnection] = useState<AvatarConnectionDetails | null>(null);
+  const [messages, setMessages] = useState<Msg[]>(saved.messages || []);
+  const [memory, setMemory] = useState(saved.memory || "");
+  const [text, setText] = useState("");
+  const [modal, setModal] = useState<"memory" | "create" | "web" | "settings" | null>(null);
   const [notice, setNotice] = useState("");
+  const [name, setName] = useState("RED");
+  const [motion, setMotion] = useState("Natural breathing, attentive eye contact, subtle head movement, expressive listening and restrained conversational gestures.");
+  const [portrait, setPortrait] = useState("");
+  const [busy, setBusy] = useState(false);
   const [webQuery, setWebQuery] = useState("");
-  const [webResults, setWebResults] = useState<Array<{ title: string; url: string; snippet: string }>>([]);
-  const client = useMemo(
-    () => createProxyClient({ proxyUrl: "/api/realtime-avatar" }),
-    []
-  );
+  const [webResults, setWebResults] = useState<Array<{title:string;url:string;snippet:string}>>([]);
+  const client = useMemo(() => createProxyClient({ proxyUrl: "/api/realtime-avatar" }), []);
 
   useEffect(() => {
-    localStorage.setItem(
-      STORE,
-      JSON.stringify({
-        messages,
-        memory,
-        avatarId,
-        avatarStatus,
-        name,
-      })
-    );
-  }, [messages, memory, avatarId, avatarStatus, name]);
+    localStorage.setItem(STORE, JSON.stringify({ avatarId, avatarStatus, avatar: selected, messages, memory }));
+  }, [avatarId, avatarStatus, selected, messages, memory]);
 
   useEffect(() => {
-    let stop = false;
-    fetch("/api/avatars")
-      .then((r) => r.json())
-      .then((d) => {
-        if (!stop && Array.isArray(d.avatars)) {
-          setAvatars(() => {
-            const fetched = d.avatars as AvatarChoice[];
-            const byId = new Map(PUBLIC_AVATARS.map((a) => [a.id, a]));
-            for (const a of fetched) byId.set(a.id, { ...byId.get(a.id), ...a });
-            return [...byId.values()];
-          });
-        }
-      })
-      .catch(() => {});
-    return () => { stop = true; };
+    fetch("/api/avatars").then(r => r.json()).then(d => {
+      if (Array.isArray(d.avatars)) {
+        const clean = d.avatars.filter((a: Avatar) => !/mark zuckerberg/i.test(a.name));
+        if (clean.length) setAvatars(clean);
+      }
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
     if (!avatarId.startsWith("ava_")) return;
-
-    let stop = false;
-    const tick = async () => {
+    let stopped = false;
+    const poll = async () => {
       try {
-        const r = await fetch(
-          "/api/avatar/status?id=" + encodeURIComponent(avatarId)
-        );
-        if (!r.ok) return;
+        const r = await fetch("/api/avatar/status?id=" + encodeURIComponent(avatarId));
         const d = await r.json();
-        if (!stop) setAvatarStatus(d.status || "unknown");
-        if (!stop && (d.posterUrl || d.idleVideoUrl)) setAvatarMedia({ poster: d.posterUrl, idle: d.idleVideoUrl });
+        if (stopped) return;
+        setAvatarStatus(d.status || "unknown");
+        setSelected((a: Avatar) => ({ ...a, status: d.status || a.status, poster: d.posterUrl || a.poster, idle: d.idleVideoUrl || a.idle }));
       } catch {}
     };
-
-    tick();
-    const id = setInterval(tick, 10000);
-    return () => {
-      stop = true;
-      clearInterval(id);
-    };
+    poll();
+    const timer = setInterval(poll, 8000);
+    return () => { stopped = true; clearInterval(timer); };
   }, [avatarId]);
 
-  const add = (role: Msg["role"], content: string) =>
-    setMessages((m) => [...m, { role, content, ts: Date.now() }]);
+  const selectAvatar = (a: Avatar) => {
+    if (inCall) return;
+    setAvatarId(a.id);
+    setAvatarStatus(a.status);
+    setSelected(a);
+    setCallError("");
+  };
 
   const send = async () => {
-    const v = text.trim();
-    if (!v) return;
-
+    const value = text.trim();
+    if (!value) return;
     setText("");
-    const userMessage: Msg = { role: "user", content: v, ts: Date.now() };
-    const nextMessages = [...messages, userMessage];
-    setMessages(nextMessages);
-
+    const next = [...messages, { role: "user" as const, content: value, ts: Date.now() }];
+    setMessages(next);
     try {
-      const r = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          message: v,
-          messages: nextMessages,
-          memory,
-        }),
-      });
-      if (!r.ok) throw new Error("Text chat failed");
+      const r = await fetch("/api/chat", { method: "POST", headers: {"content-type":"application/json"}, body: JSON.stringify({ message:value, messages:next, memory }) });
       const d = await r.json();
-      add("assistant", d.reply || "");
+      if (!r.ok) throw new Error(d.error || "Chat failed");
+      setMessages(m => [...m, { role:"assistant", content:d.reply || "", ts:Date.now() }]);
     } catch {
-      add(
-        "assistant",
-        "Start the live conversation for hands-free voice and the talking avatar."
-      );
+      setMessages(m => [...m, { role:"assistant", content:"Start the live conversation and talk to me hands-free.", ts:Date.now() }]);
     }
-  };
-
-  const saveMemory = async () => {
-    setNotice("Saving memory…");
-    try {
-      const r = await fetch("/api/memory", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ memory, messages }),
-      });
-      if (!r.ok) {
-        const d = await r.json().catch(() => ({}));
-        throw new Error(d.error || "Memory could not be saved.");
-      }
-      setNotice("Memory saved on this device and synced for live calls.");
-      setTimeout(() => setModal(null), 500);
-    } catch (e) {
-      setNotice(e instanceof Error ? e.message : "Memory could not be saved.");
-    }
-  };
-
-  const choosePortrait = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-
-    if (!/^image\/(png|jpeg|webp)$/.test(f.type)) {
-      setNotice("Use a PNG, JPEG, or WebP portrait.");
-      return;
-    }
-    if (f.size > 8 * 1024 * 1024) {
-      setNotice("Image must be 8 MB or smaller.");
-      return;
-    }
-
-    const r = new FileReader();
-    r.onload = () => setPortrait(String(r.result));
-    r.readAsDataURL(f);
   };
 
   const createAvatar = async () => {
-    const input = document.getElementById("avatarFile") as
-      | HTMLInputElement
-      | null;
+    const input = document.getElementById("portrait") as HTMLInputElement | null;
     const file = input?.files?.[0];
-
-    if (!file) {
-      setNotice("Choose a portrait first.");
-      return;
-    }
-
-    setBusy(true);
-    setNotice("Creating your live avatar…");
-
+    if (!file) { setNotice("Choose a portrait first."); return; }
+    setBusy(true); setNotice("Building the avatar…");
     try {
       const fd = new FormData();
-      fd.append("file", file);
-      fd.append("name", name);
-      fd.append("motionPrompt", motion);
-
-      const r = await fetch("/api/avatar/create", {
-        method: "POST",
-        body: fd,
-      });
+      fd.append("file", file); fd.append("name", name); fd.append("motionPrompt", motion);
+      const r = await fetch("/api/avatar/create", { method:"POST", body:fd });
       const d = await r.json();
-
-      if (!r.ok) throw new Error(d.error || "Creation failed");
-
-      setAvatarId(d.id);
-      setAvatarMedia({ poster: d.posterUrl, idle: d.idleVideoUrl });
-      setAvatarStatus(d.status || "preprocessing");
-      setNotice(
-        d.status === "ready"
-          ? "Avatar ready."
-          : "Avatar is rendering. RED LIVE will keep checking until it is ready."
-      );
-    } catch (e) {
-      setNotice(
-        e instanceof Error ? e.message : "Avatar creation failed"
-      );
-    } finally {
-      setBusy(false);
-    }
+      if (!r.ok) throw new Error(d.error || "Avatar creation failed");
+      const a: Avatar = { id:d.id, name:d.displayName || name, status:d.status || "preprocessing", poster:d.posterUrl || portrait, idle:d.idleVideoUrl };
+      setSelected(a); setAvatarId(a.id); setAvatarStatus(a.status); setAvatars(v => [a, ...v.filter(x => x.id !== a.id)]);
+      setNotice("Avatar creation started. RED LIVE will enable it when the provider reports it ready.");
+    } catch (e) { setNotice(e instanceof Error ? e.message : "Avatar creation failed"); }
+    finally { setBusy(false); }
   };
 
-  const createAvatarFromUrl = async (displayName: string, imageUrl: string, kind: "real" | "stylized") => {
-    setBusy(true);
-    const motionPrompt = kind === "stylized"
-      ? "Animate this illustrated character naturally: subtle breathing, eye movement, expressive listening, gentle head turns, restrained gestures and believable conversational timing. Preserve the original art style and identity."
-      : "Photorealistic conversational human: subtle breathing, natural eye movement, attentive listening, gentle head turns, restrained hand and facial expression, believable conversational timing.";
-    setNotice(`Creating ${displayName}'s live avatar…`);
-    try {
-      const r = await fetch("/api/avatar/create-from-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ displayName, imageUrl, motionPrompt })
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Avatar creation failed.");
-      setAvatarId(d.id);
-      setAvatarMedia({ poster: d.posterUrl || imageUrl, idle: d.idleVideoUrl || undefined });
-      setAvatarStatus(d.status || "preprocessing");
-      setNotice(`${displayName} is being animated. It will become live automatically when generation reaches ready.`);
-    } catch (e) {
-      setNotice(e instanceof Error ? e.message : "Avatar creation failed.");
-    } finally {
-      setBusy(false);
-    }
+  const choosePortrait = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    if (!/^image\/(png|jpeg|webp)$/.test(f.type) || f.size > 8*1024*1024) { setNotice("Use a PNG, JPEG or WebP image up to 8 MB."); return; }
+    const reader = new FileReader(); reader.onload = () => setPortrait(String(reader.result)); reader.readAsDataURL(f);
   };
 
-  const isDefault = avatarId === DEFAULT_ID;
-
-  const checkProvider = async () => {
+  const saveMemory = async () => {
     try {
-      const r = await fetch("/api/live-diagnostic");
-      const d = await r.json();
-      setProviderStatus(d.ok ? "ready" : `${d.avatar || "unavailable"} / ${d.credits || "unavailable"}`);
-    } catch {
-      setProviderStatus("server unreachable");
-    }
-  };
-
-  const checkMic = async () => {
-    try {
-      if (!navigator.mediaDevices?.getUserMedia) throw new Error("Microphone access is unavailable in this browser.");
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((t) => t.stop());
-      setMicReady(true);
-      setNotice("Microphone is available. Start the live conversation.");
-    } catch {
-      setMicReady(false);
-      setNotice("Microphone access is blocked. In Brave, allow Microphone for this site, then try again.");
-    }
+      const r = await fetch("/api/memory", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({memory,messages}) });
+      if (!r.ok) throw new Error("Memory could not be saved");
+      setNotice("Memory saved.");
+    } catch (e) { setNotice(e instanceof Error ? e.message : "Memory could not be saved"); }
   };
 
   const webSearch = async () => {
-    const q = webQuery.trim();
-    if (!q) return;
+    if (!webQuery.trim()) return;
     setBusy(true);
     try {
-      const r = await fetch("/api/web-search?q=" + encodeURIComponent(q));
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Web search failed.");
-      setWebResults(Array.isArray(d.results) ? d.results : []);
-    } catch (e) {
-      setNotice(e instanceof Error ? e.message : "Web search failed.");
-    } finally { setBusy(false); }
+      const r = await fetch("/api/web-search?q=" + encodeURIComponent(webQuery));
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Search failed");
+      setWebResults(d.results || []);
+    } catch (e) { setNotice(e instanceof Error ? e.message : "Search failed"); }
+    finally { setBusy(false); }
   };
 
-  return (
-    <div className="app">
-      <header>
-        <div>
-          <div className="logoMark"><span>R</span><div><div className="logo">RED <b>LIVE</b></div><div className="tag">FACE-TO-FACE AI STUDIO</div></div></div>
-          <div className="tag">VOICE • VISION • MEMORY • WEB</div>
+  const poster = selected.poster || portrait || RIN.poster;
+  const idle = selected.idle || (selected.id === DEFAULT_ID ? RIN.idle : undefined);
+
+  return <div className="app">
+    <header>
+      <div className="brand"><div className="brandOrb">R</div><div><div className="brandName">RED <span>LIVE</span></div><div className="brandSub">FACE-TO-FACE AI</div></div></div>
+      <button className="iconButton" onClick={() => setModal("settings")}>⚙</button>
+    </header>
+
+    <main>
+      <section className="stage">
+        <div className="stageTop"><div><span className="statusDot"/> {inCall ? "LIVE" : "READY"} <span className="muted">/ {selected.name}</span></div><div className="stageActions"><span>{inCall ? callStatus : "Full-duplex voice • animated video"}</span></div></div>
+        <div className="stageGrid">
+          <div className="videoPanel">
+            {inCall ? <AvatarCall client={client} avatarId={avatarId} poster={poster || undefined} idleVideoUrl={idle || undefined}
+              style={{width:"100%",height:"100%"}} onStatusChange={s => {setCallStatus(s); if(s==="live") setCallError("");}}
+              onConnectionDetailsChange={setConnection}
+              onEnded={({reason}) => {setInCall(false);setCallStatus("ended");setCallError(reason ? String(reason) : "The session ended.");setConnection(null);}}>
+              {call => <div className="liveBar"><CameraButton active={inCall}/><div className="liveState"><b>{call.status === "waiting" ? "WAITING " + call.queuePosition : call.status.toUpperCase()}</b>{connection?.localQuality && <small> · {connection.localQuality}</small>}</div><button className="endButton" onClick={call.end}>End</button></div>}
+            </AvatarCall> : idle ? <video className="avatarMedia" src={idle} poster={poster || undefined} autoPlay muted loop playsInline/> : poster ? <img className="avatarMedia" src={poster} alt={selected.name}/> : <div className="noAvatar"><b>{selected.name}</b><span>Live avatar</span></div>}
+            <div className="namePlate"><b>{selected.name}</b><span>{avatarStatus === "ready" ? "LIVE-READY" : avatarStatus}</span></div>
+          </div>
+
+          <aside className="controlPanel">
+            <div className="eyebrow">LIVE CONVERSATION</div>
+            <h1>Talk to an AI<br/><em>that looks alive.</em></h1>
+            <p className="lead">Natural two-way voice, interruption, animated facial performance, memory, web access and optional camera vision.</p>
+            {callError && <div className="errorBox"><b>Connection stopped</b><span>{callError}</span><button onClick={() => {setCallError("");setInCall(false);}}>Dismiss</button></div>}
+            {!inCall ? <button className="startButton" disabled={avatarStatus !== "ready"} onClick={() => {setCallError("");setCallStatus("connecting");setInCall(true);}}>{avatarStatus === "ready" ? "START LIVE" : "AVATAR " + avatarStatus.toUpperCase()}</button> : <button className="secondaryButton" onClick={() => setInCall(false)}>Leave conversation</button>}
+            <div className="featureList"><div><b>01</b><span>Full-duplex voice</span></div><div><b>02</b><span>Real-time animated avatar</span></div><div><b>03</b><span>Persistent memory</span></div><div><b>04</b><span>Web + camera tools</span></div></div>
+            <div className="controlHint">Microphone is owned by the live-call component so there is one audio lifecycle, not two competing mic requests.</div>
+          </aside>
         </div>
-        <button className="ghost" onClick={() => setModal("settings")}>
-          ⚙
-        </button>
-      </header>
+      </section>
 
-      <main>
-        <section className="heroStage">
-          <div className="presenceLine"><span className="presenceDot"></span><span>{inCall ? "LIVE CONVERSATION" : "RED LIVE"}</span><span className="presenceHint">{inCall ? "Full duplex" : "Ready when you are"}</span></div>
-          <section className="hero">
-          <div className="avatarWrap">
-            {inCall ? (
-              <AvatarCall
-                client={client}
-                avatarId={avatarId}
-                mode={callMode}
-                poster={isDefault ? POSTER : avatarMedia.poster || portrait || PUBLIC_AVATARS.find((a) => a.id === avatarId)?.poster || undefined}
-                idleVideoUrl={isDefault ? IDLE : avatarMedia.idle || PUBLIC_AVATARS.find((a) => a.id === avatarId)?.idle || undefined}
-                style={{ width: "100%", height: "100%" }}
-                onStatusChange={(status) => {
-                  setCallStatus(status);
-                  if (status === "connecting" || status === "live") setCallError("");
-                }}
-                onConnectionDetailsChange={setConnection}
-                onEnded={({ reason }) => {
-                  setInCall(false);
-                  setCallStatus("ended");
-                  setCallError(reason ? String(reason) : "The live session ended.");
-                  setConnection(null);
-                }}
-              >
-                {(call) => (
-                  <div className="callOverlay">
-                    <div className="callTools"><CameraControl active={inCall} /></div>
-                    <div>
-                      <strong>
-                        {call.status === "waiting"
-                          ? "In line: " + call.queuePosition
-                          : call.status === "live"
-                            ? "LIVE"
-                            : call.status}
-                      </strong>
-                      {connection?.localQuality && (
-                        <small className="quality">
-                          {" "}
-                          • {connection.localQuality}
-                        </small>
-                      )}
-                    </div>
-                    <button onClick={call.end}>End call</button>
-                  </div>
-                )}
-              </AvatarCall>
-            ) : isDefault ? (
-              <video
-                className="idle"
-                src={IDLE}
-                poster={POSTER}
-                autoPlay
-                muted
-                loop
-                playsInline
-              />
-             ) : avatarMedia.poster ? (
-              <img className="idle" src={avatarMedia.poster} alt={name} />
-            ) : portrait ? (
-              <img className="idle" src={portrait} alt={name} />
-            ) : (
-              <div className="portraitPlaceholder">
-                <span>RED LIVE</span>
-                <small>
-                  {avatarStatus === "ready"
-                    ? "Avatar ready"
-                    : "Avatar " + avatarStatus}
-                </small>
-              </div>
-            )}
-          </div>
-
-          <div className="heroActions">
-            <div className="liveCapabilityCard">
-              <span className="livePulse"></span>
-              <div><b>REAL-TIME HUMAN PRESENCE</b><small>Two-way voice • interruption • live facial motion</small></div>
-            </div>
-            {inCall && callError && (
-              <div className="callError" role="alert">
-                <strong>Live connection stopped</strong>
-                <span>{callError}</span>
-                <button onClick={() => { setCallError(""); setInCall(false); setTimeout(() => setInCall(true), 50); }}>
-                  Try again
-                </button>
-              </div>
-            )}
-            {!inCall && (
-              <button
-                className="primary"
-                disabled={avatarStatus !== "ready"}
-                onClick={() => {
-                  setCallError("");
-                  setCallMode("avatar");
-                  setCallStatus("connecting");
-                  setInCall(true);
-                }}
-              >
-                {avatarStatus === "ready"
-                  ? "Start live conversation"
-                  : "Avatar is " + avatarStatus}
-              </button>
-            )}
-            {inCall && callStatus && (
-              <span className="callStatus">
-                {callStatus === "connecting"
-                  ? "Connecting microphone and avatar…"
-                  : callStatus === "recovering"
-                    ? "Reconnecting…"
-                    : callStatus}
-              </span>
-            )}
-            <span className="secure">
-              Full-duplex voice • interruption • camera • persistent memory
-            </span>
-          </div>
-        </section>
-        </section>
-
-        <section className="humanVision">
-  <div className="humanVisionHead">
-    <div><span className="eyebrow">RED LIVE AVATAR VAULT</span><h2>20 faces. Two worlds.</h2><p>Choose a photoreal human or a distinctive animated character. Every selection can become a real live conversational avatar.</p></div>
-    <span className="humanVisionBadge">20 OPTIONS</span>
-  </div>
-  <div className="avatarVaultSection"><h3>PHOTOREAL HUMANS <span>10</span></h3><div className="humanVisionGrid"><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Ava","https://randomuser.me/api/portraits/women/44.jpg","real")}><img src="https://randomuser.me/api/portraits/women/44.jpg" alt="Ava" loading="lazy"/><b>Ava</b><small>British • 20s</small><em>Warm / curious</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Maya","https://randomuser.me/api/portraits/women/65.jpg","real")}><img src="https://randomuser.me/api/portraits/women/65.jpg" alt="Maya" loading="lazy"/><b>Maya</b><small>South Asian • 30s</small><em>Sharp / friendly</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Sophie","https://randomuser.me/api/portraits/women/68.jpg","real")}><img src="https://randomuser.me/api/portraits/women/68.jpg" alt="Sophie" loading="lazy"/><b>Sophie</b><small>European • 30s</small><em>Calm / witty</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Jordan","https://randomuser.me/api/portraits/men/32.jpg","real")}><img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Jordan" loading="lazy"/><b>Jordan</b><small>Black British • 30s</small><em>Confident / relaxed</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Daniel","https://randomuser.me/api/portraits/men/41.jpg","real")}><img src="https://randomuser.me/api/portraits/men/41.jpg" alt="Daniel" loading="lazy"/><b>Daniel</b><small>British • 30s</small><em>Thoughtful / dry</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Leah","https://randomuser.me/api/portraits/women/32.jpg","real")}><img src="https://randomuser.me/api/portraits/women/32.jpg" alt="Leah" loading="lazy"/><b>Leah</b><small>Mixed heritage • 20s</small><em>Creative / warm</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Marcus","https://randomuser.me/api/portraits/men/52.jpg","real")}><img src="https://randomuser.me/api/portraits/men/52.jpg" alt="Marcus" loading="lazy"/><b>Marcus</b><small>Black • 40s</small><em>Grounded / direct</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Elena","https://randomuser.me/api/portraits/women/47.jpg","real")}><img src="https://randomuser.me/api/portraits/women/47.jpg" alt="Elena" loading="lazy"/><b>Elena</b><small>Mediterranean • 30s</small><em>Expressive / bright</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Ryan","https://randomuser.me/api/portraits/men/22.jpg","real")}><img src="https://randomuser.me/api/portraits/men/22.jpg" alt="Ryan" loading="lazy"/><b>Ryan</b><small>British • 20s</small><em>Easygoing / curious</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Nadia","https://randomuser.me/api/portraits/women/25.jpg","real")}><img src="https://randomuser.me/api/portraits/women/25.jpg" alt="Nadia" loading="lazy"/><b>Nadia</b><small>Middle Eastern • 30s</small><em>Focused / warm</em><span>MAKE LIVE</span></button></div></div>
-  <div className="avatarVaultSection"><h3>ANIMATED CHARACTERS <span>10</span></h3><div className="humanVisionGrid"><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Nova","https://api.dicebear.com/9.x/lorelei/png?seed=Nova&size=1024","stylized")}><img src="https://api.dicebear.com/9.x/lorelei/png?seed=Nova&size=1024" alt="Nova" loading="lazy"/><b>Nova</b><small>Cinematic anime</small><em>Animated personality</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Kira","https://api.dicebear.com/9.x/notionists/png?seed=Kira&size=1024","stylized")}><img src="https://api.dicebear.com/9.x/notionists/png?seed=Kira&size=1024" alt="Kira" loading="lazy"/><b>Kira</b><small>Anime heroine</small><em>Animated personality</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Zane","https://api.dicebear.com/9.x/adventurer/png?seed=Zane&size=1024","stylized")}><img src="https://api.dicebear.com/9.x/adventurer/png?seed=Zane&size=1024" alt="Zane" loading="lazy"/><b>Zane</b><small>Stylized hero</small><em>Animated personality</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Milo","https://api.dicebear.com/9.x/avataaars/png?seed=Milo&size=1024","stylized")}><img src="https://api.dicebear.com/9.x/avataaars/png?seed=Milo&size=1024" alt="Milo" loading="lazy"/><b>Milo</b><small>3D cartoon</small><em>Animated personality</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Rae","https://api.dicebear.com/9.x/open-peeps/png?seed=Rae&size=1024","stylized")}><img src="https://api.dicebear.com/9.x/open-peeps/png?seed=Rae&size=1024" alt="Rae" loading="lazy"/><b>Rae</b><small>Graphic character</small><em>Animated personality</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Atlas","https://api.dicebear.com/9.x/bottts/png?seed=Atlas&size=1024","stylized")}><img src="https://api.dicebear.com/9.x/bottts/png?seed=Atlas&size=1024" alt="Atlas" loading="lazy"/><b>Atlas</b><small>Robot companion</small><em>Animated personality</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Juno","https://api.dicebear.com/9.x/micah/png?seed=Juno&size=1024","stylized")}><img src="https://api.dicebear.com/9.x/micah/png?seed=Juno&size=1024" alt="Juno" loading="lazy"/><b>Juno</b><small>Illustrated human</small><em>Animated personality</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Pixel","https://api.dicebear.com/9.x/pixel-art/png?seed=Pixel&size=1024","stylized")}><img src="https://api.dicebear.com/9.x/pixel-art/png?seed=Pixel&size=1024" alt="Pixel" loading="lazy"/><b>Pixel</b><small>Retro character</small><em>Animated personality</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Echo","https://api.dicebear.com/9.x/personas/png?seed=Echo&size=1024","stylized")}><img src="https://api.dicebear.com/9.x/personas/png?seed=Echo&size=1024" alt="Echo" loading="lazy"/><b>Echo</b><small>Storybook character</small><em>Animated personality</em><span>MAKE LIVE</span></button><button className="humanVisionCard" onClick={() => void createAvatarFromUrl("Vega","https://api.dicebear.com/9.x/big-ears/png?seed=Vega&size=1024","stylized")}><img src="https://api.dicebear.com/9.x/big-ears/png?seed=Vega&size=1024" alt="Vega" loading="lazy"/><b>Vega</b><small>Bold animated persona</small><em>Animated personality</em><span>MAKE LIVE</span></button></div></div>
-  <p className="humanVisionNote">The portrait is uploaded to the live-avatar provider, which generates its animated idle state and motion library. The app only marks a character live after the provider reports it ready.</p>
-</section>
-
-<section className="characters">
-          <div className="chatHead">
-            <b>Choose your live human</b>
-            <span>{avatars.filter((a) => a.status === "ready").length} live</span>
-          </div>
-          <div className="characterGrid">
-            {avatars.filter((a) => a.status === "ready").map((a) => (
-              <button
-                key={a.id}
-                className={"characterCard " + (avatarId === a.id ? "selected" : "")}
-                onClick={() => {
-                  setAvatarId(a.id);
-                  setAvatarStatus(a.status);
-                  setAvatarMedia({ poster: a.poster || undefined, idle: a.idle || undefined });
-                }}
-              >
-                {a.poster ? <img src={a.poster} alt="" /> : <div className="characterFallback">AI</div>}
-                <span>{a.name}</span>
-              </button>
-            ))}
-            <button className="characterCard createCard" onClick={() => setModal("avatar")}>
-              <div className="characterFallback">+</div>
-              <span>Create yours</span>
-            </button>
-          </div>
-        </section>
-
-        <section className="chat">
-          <div className="chatHead">
-            <b>Conversation</b>
-            <button onClick={() => setModal("memory")}>Memory</button>
-          </div>
-
-          {messages.length === 0 ? (
-            <div className="empty">
-              Start a live call or type below. Saved memory stays on this
-              device and is supplied to live calls.
-            </div>
-          ) : (
-            messages.map((m, i) => (
-              <div key={i} className={"msg " + m.role}>
-                <small>{m.role === "user" ? "YOU" : "RED"}</small>
-                <div>{m.content}</div>
-              </div>
-            ))
-          )}
-        </section>
-
-        <section className="composer">
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && send()}
-            placeholder="Type to RED…"
-          />
-          <button onClick={send}>Send</button>
-        </section>
-
-        <nav>
-          <button onClick={() => setModal("memory")}>Memory</button>
-          <button onClick={() => setModal("avatar")}>Create avatar</button>
-          <button onClick={() => setModal("web")}>Web</button>
-          <button onClick={() => setModal("settings")}>Settings</button>
-        </nav>
-      </main>
-
-      {modal === "memory" && (
-        <div className="modal">
-          <div className="sheet">
-            <button className="close" onClick={() => setModal(null)}>
-              ×
-            </button>
-            <h2>RED memory</h2>
-            <p>
-              Saved memory is kept locally and synchronized into the secure
-              live-session context.
-            </p>
-            <textarea
-              value={memory}
-              onChange={(e) => setMemory(e.target.value)}
-              placeholder="Things RED should remember…"
-            />
-            <button className="primary" onClick={saveMemory}>
-              Save memory
-            </button>
-            {notice && <div className="notice">{notice}</div>}
-          </div>
+      <section className="vault">
+        <div className="sectionHead"><div><div className="eyebrow">CHARACTER VAULT</div><h2>Choose a character.</h2><p>These are provider-backed live characters or avatars you create yourself. No fake thumbnail faces.</p></div><button className="createButton" onClick={() => setModal("create")}>＋ CREATE YOUR OWN</button></div>
+        <div className="avatarGrid">
+          {avatars.map(a => <button key={a.id} className={"avatarCard " + (a.id === avatarId ? "selected" : "")} onClick={() => selectAvatar(a)}>
+            <div className="cardMedia">{a.id === DEFAULT_ID && a.idle ? <video src={a.idle} poster={a.poster || undefined} muted autoPlay loop playsInline/> : a.poster ? <img src={a.poster} alt={a.name}/> : <div className="generatedCard"><span>{a.status === "ready" ? "LIVE" : a.status.toUpperCase()}</span></div>}</div>
+            <div className="cardInfo"><b>{a.name}</b><small>{a.id.startsWith("ava_") ? "YOUR AVATAR" : "PROVIDER CHARACTER"}</small><span className={a.status === "ready" ? "ready" : ""}>{a.status === "ready" ? "READY" : a.status}</span></div>
+          </button>)}
+          <button className="avatarCard createTile" onClick={() => setModal("create")}><div className="createGlyph">＋</div><b>Create your own</b><small>Upload a portrait → animated live character</small></button>
         </div>
-      )}
+      </section>
 
-      {modal === "avatar" && (
-        <div className="modal">
-          <div className="sheet">
-            <button className="close" onClick={() => setModal(null)}>
-              ×
-            </button>
-            <h2>Create an AI human</h2>
-            <p>
-              Upload a clear portrait. RED LIVE creates the talking avatar
-              server-side; creation can take a little time. You control the name, personality and movement.
-            </p>
-            <input
-              id="avatarFile"
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              onChange={choosePortrait}
-            />
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Avatar name"
-            />
-            <textarea
-              value={motion}
-              onChange={(e) => setMotion(e.target.value)}
-            />
-            <button
-              className="primary"
-              disabled={busy}
-              onClick={createAvatar}
-            >
-              {busy ? "Creating…" : "Create live avatar"}
-            </button>
-            {notice && <div className="notice">{notice}</div>}
-          </div>
-        </div>
-      )}
+      <section className="conversation">
+        <div className="sectionMini"><b>TEXT CONVERSATION</b><button onClick={() => setModal("memory")}>MEMORY</button></div>
+        <div className="messages">{messages.length ? messages.map((m,i)=><div key={i} className={"message "+m.role}><small>{m.role === "user" ? "YOU" : "RED"}</small><div>{m.content}</div></div>) : <div className="emptyState">Text chat stays available when you don't want to start a live call.</div>}</div>
+        <div className="composer"><input value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Say something…"/><button onClick={send}>SEND</button></div>
+      </section>
 
-      {modal === "web" && (
-        <div className="modal">
-          <div className="sheet">
-            <button className="close" onClick={() => setModal(null)}>×</button>
-            <h2>Web search</h2>
-            <p>Search the web from RED LIVE when a search provider is configured on the server.</p>
-            <div className="webRow"><input value={webQuery} onChange={(e) => setWebQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && webSearch()} placeholder="Search the web…" /><button onClick={webSearch} disabled={busy}>Search</button></div>
-            <div className="results">{webResults.map((r) => <article key={r.url}><a href={r.url} target="_blank" rel="noreferrer">{r.title}</a><p>{r.snippet}</p></article>)}</div>
-            {notice && <div className="notice">{notice}</div>}
-          </div>
-        </div>
-      )}
+      <nav className="bottomNav"><button onClick={()=>setModal("memory")}>Memory</button><button onClick={()=>setModal("create")}>Create avatar</button><button onClick={()=>setModal("web")}>Web search</button><button onClick={()=>setModal("settings")}>Settings</button></nav>
+    </main>
 
-      {modal === "settings" && (
-        <div className="modal">
-          <div className="sheet">
-            <button className="close" onClick={() => setModal(null)}>
-              ×
-            </button>
-            <h2>RED LIVE settings</h2>
-            <p>
-              Avatar: <b>{avatarId}</b>
-            </p>
-            <p>
-              Status: <b>{avatarStatus}</b>
-            </p>
-            <p>
-              Live voice uses the browser microphone over HTTPS. Use “Test microphone” before a call if Brave has not granted access. The provider
-              key remains server-side.
-            </p>
-            <button onClick={checkMic}>Test microphone</button>
-            <button onClick={checkProvider}>Check live provider</button>
-            <button onClick={() => { setCallMode("voice"); setModal(null); setInCall(true); }}>
-              Start voice-only fallback
-            </button>
-            <p>Microphone: <b>{micReady === null ? "not tested" : micReady ? "ready" : "blocked"}</b></p>
-            <p>Live provider: <b>{providerStatus}</b></p>
-            <button onClick={() => setModal("avatar")}>
-              Create/change avatar
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+    {modal === "create" && <div className="modal"><div className="sheet"><button className="close" onClick={()=>setModal(null)}>×</button><div className="eyebrow">AVATAR CREATOR</div><h2>Make a real live character.</h2><p>Use a clear portrait. The provider generates the animated idle state and motion library from that image, then RED LIVE can use the resulting avatar in a live call.</p><input id="portrait" type="file" accept="image/png,image/jpeg,image/webp" onChange={choosePortrait}/>{portrait && <img className="preview" src={portrait} alt="Portrait preview"/>}<input value={name} onChange={e=>setName(e.target.value)} placeholder="Character name"/><textarea value={motion} onChange={e=>setMotion(e.target.value)}/><button className="startButton" disabled={busy} onClick={createAvatar}>{busy ? "BUILDING…" : "CREATE LIVE AVATAR"}</button>{notice&&<div className="notice">{notice}</div>}</div></div>}
+
+    {modal === "memory" && <div className="modal"><div className="sheet"><button className="close" onClick={()=>setModal(null)}>×</button><div className="eyebrow">MEMORY</div><h2>What should RED remember?</h2><p>Memory is kept locally and supplied as live-session context. Recent conversation is retained too.</p><textarea value={memory} onChange={e=>setMemory(e.target.value)} placeholder="Preferences, ongoing projects, things RED should remember…"/><button className="startButton" onClick={saveMemory}>SAVE MEMORY</button>{notice&&<div className="notice">{notice}</div>}</div></div>}
+
+    {modal === "web" && <div className="modal"><div className="sheet"><button className="close" onClick={()=>setModal(null)}>×</button><div className="eyebrow">WEB</div><h2>Search the live web.</h2><div className="webRow"><input value={webQuery} onChange={e=>setWebQuery(e.target.value)} onKeyDown={e=>e.key==="Enter"&&webSearch()} placeholder="Search…"/><button onClick={webSearch} disabled={busy}>SEARCH</button></div><div className="results">{webResults.map(r=><article key={r.url}><a href={r.url} target="_blank" rel="noreferrer">{r.title}</a><p>{r.snippet}</p></article>)}</div>{notice&&<div className="notice">{notice}</div>}</div></div>}
+
+    {modal === "settings" && <div className="modal"><div className="sheet"><button className="close" onClick={()=>setModal(null)}>×</button><div className="eyebrow">SYSTEM</div><h2>RED LIVE</h2><p><b>Avatar:</b> {selected.name}</p><p><b>Avatar status:</b> {avatarStatus}</p><p><b>Live provider:</b> server-side session proxy</p><p><b>Camera:</b> available inside the live session when enabled</p><button onClick={()=>{setModal("create");}}>Create/change avatar</button><button onClick={()=>{fetch("/api/live-diagnostic").then(r=>r.json()).then(d=>setNotice(JSON.stringify(d))).catch(()=>setNotice("Provider diagnostic failed"));}}>Check provider</button>{notice&&<div className="notice">{notice}</div>}</div></div>}
+  </div>;
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
