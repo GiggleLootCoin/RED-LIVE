@@ -10,6 +10,34 @@ const base = "https://realtimeavatar.ai/api/v1";
 const headers = () => ({ Authorization: "Bearer " + key() });
 const persona = "You are RED LIVE, a highly natural conversational AI companion. Speak in a relaxed, human conversational rhythm with contractions, varied sentence length, brief natural reactions and occasional pauses. Sound like a real person, not a cartoon, announcer, presenter, chatbot or call-centre agent. Use natural conversational phrasing, realistic pacing and understated emotion. Do not repeat greetings or filler. Listen while the user speaks and respond directly to what they actually said. Let the user interrupt. Keep ordinary replies concise and expand when useful. Use the supplied conversation context as memory. Never claim to be human.";
 
+const FALLBACK_AVATAR_IDS = new Set([
+  "seed-rin-ashfall",
+  "seed-vesper-nyx",
+  "seed-professor-thistle",
+  "seed-valko",
+  "seed-remy",
+  "seed-koko",
+  "seed-luciano-draven",
+]);
+
+function isAvatarIdAllowed(id: string) {
+  return FALLBACK_AVATAR_IDS.has(id) || /^ava_[A-Za-z0-9_-]+$/.test(id);
+}
+
+async function getProviderAvatar(id: string) {
+  if (!key() || !isAvatarIdAllowed(id)) return null;
+  const r = await fetch(base + "/avatars/" + encodeURIComponent(id), { headers: headers() });
+  if (!r.ok) return null;
+  return await r.json().catch(() => null);
+}
+
+function isAvatarSafeForREDLive(avatar: any) {
+  if (!avatar?.id) return false;
+  const label = [avatar.displayName, avatar.name, avatar.description, avatar.persona]
+    .filter(Boolean).join(" ");
+  return !isPublicFigureLabel(label);
+}
+
 
 function isPublicFigureLabel(value: string) {
   return /(^|\s)(celebrity|politician|president|prime minister|king|queen|world leader|public figure)($|\s)/i.test(value);
@@ -29,10 +57,25 @@ app.all("/api/realtime-avatar/*", realtimeAvatarHono({
   // The SDK may use the read operations for balance/avatar state.
   // Only the actual connect/end operations are sensitive here; the provider
   // still keeps the API key server-side.
-  authorize: () => undefined,
+  authorize: async ({ request, operation }) => {
+    if (operation !== "connect") return;
+    if (!key()) return new Response("Avatar provider is not configured.", { status: 503 });
+    // RED LIVE is intentionally a single-user creator app, but the connect route
+    // is still a public HTTP endpoint. Do the safety/readiness gate server-side;
+    // never trust the avatar id or readiness reported by the browser.
+    const avatarId = new URL(request.url).searchParams.get("avatarId") || "";
+    if (!isAvatarIdAllowed(avatarId)) {
+      return new Response("Avatar is not allowed.", { status: 403 });
+    }
+  },
   session: async ({ request, avatarId }) =>
-    /^[A-Za-z0-9_-]{3,160}$/.test(avatarId)
-      ? {
+    isAvatarIdAllowed(avatarId)
+      ? await (async () => {
+          const avatar = await getProviderAvatar(avatarId);
+          if (!avatar || avatar.status !== "ready" || !isAvatarSafeForREDLive(avatar)) {
+            return new Response("Avatar is not ready or is not permitted in RED LIVE.", { status: 403 });
+          }
+          return {
           instructions: persona,
           context: cookieContext(request),
           maxSeconds: 180,
@@ -42,7 +85,8 @@ app.all("/api/realtime-avatar/*", realtimeAvatarHono({
           // Keep the provider's generated portrait loop and motion library.
           // This gives the character breathing, blinking, listening reactions
           // and gestures without forcing the less predictable generative mode.
-        }
+          };
+        })()
       : new Response("Avatar not allowed", { status: 403 }),
 }));
 
@@ -135,7 +179,7 @@ app.get("/api/avatars", async c => {
     const payload = await r.json();
     const rows = Array.isArray(payload?.data) ? payload.data : [];
     const actual = rows
-      .filter((a: any) => a?.id && !isPublicFigureLabel(String(a.displayName || a.name || "")))
+      .filter((a: any) => a?.id && isAvatarIdAllowed(String(a.id)) && !isPublicFigureLabel(String(a.displayName || a.name || "")))
       .map((a: any) => ({
         id: String(a.id),
         name: String(a.displayName || a.name || "Live Avatar"),
@@ -157,8 +201,12 @@ app.post("/api/avatar/create-from-url", async c => {
     const body = await c.req.json();
     const imageUrl = typeof body.imageUrl === "string" ? body.imageUrl : "";
     const displayName = typeof body.displayName === "string" ? body.displayName.slice(0, 80) : "RED LIVE Avatar";
+    const policyAccepted = body.policyAccepted === true;
+    if (!policyAccepted) return c.json({ error: "Confirm that the portrait is original, licensed, or used with permission, and is not a celebrity, politician, world leader, or other public figure." }, 400);
+    if (isPublicFigureLabel(displayName)) return c.json({ error: "Public-figure avatars are not allowed in RED LIVE." }, 400);
     const motionPrompt = typeof body.motionPrompt === "string" ? body.motionPrompt.slice(0, 1000) : "Natural conversational presence with visible breathing, blinking, eye movement, attentive listening reactions, subtle head and shoulder movement, expressive facial micro-movements, and restrained conversational gestures.";
     if (!/^https:\/\//i.test(imageUrl)) return c.json({ error: "Secure image URL required." }, 400);
+    if (isPublicFigureLabel(motionPrompt)) return c.json({ error: "Public-figure avatar prompts are not allowed in RED LIVE." }, 400);
 
     const source = await fetch(imageUrl);
     if (!source.ok) return c.json({ error: "Avatar portrait could not be loaded." }, 502);
