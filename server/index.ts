@@ -253,15 +253,17 @@ app.get("/api/provider-check", async c => {
   }
 });
 
-app.get("/api/health", c =>
+const health = (c: any) =>
   c.json({
     ok: true,
     avatarProvider: key() ? "configured" : "missing",
     webSearch: process.env.TAVILY_API_KEY ? "configured" : "missing",
     publicUrl: process.env.RENDER_EXTERNAL_URL || null,
     textModel: process.env.LLM_MODEL || "live-avatar",
-  })
-);
+  });
+
+app.get("/api/health", health);
+app.get("/healthz", health);
 
 app.get("*", async c => {
   const requested =
