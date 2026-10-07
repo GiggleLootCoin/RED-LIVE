@@ -236,6 +236,23 @@ app.get("/api/web-search", async c => {
   } catch { return c.json({ error: "Web search connection failed." }, 502); }
 });
 
+app.get("/api/provider-check", async c => {
+  if (!key()) return c.json({ ok: false, avatar: "missing_key" }, 503);
+  try {
+    const [credits, avatars] = await Promise.all([
+      fetch(base + "/credits/balance", { headers: headers() }),
+      fetch(base + "/avatars?limit=1", { headers: headers() }),
+    ]);
+    return c.json({
+      ok: credits.ok && avatars.ok,
+      avatar: avatars.ok ? "reachable" : "scope_or_provider_error",
+      credits: credits.ok ? "reachable" : "scope_or_provider_error",
+    });
+  } catch {
+    return c.json({ ok: false, avatar: "provider_unreachable" }, 502);
+  }
+});
+
 app.get("/api/health", c =>
   c.json({
     ok: true,
