@@ -8,7 +8,7 @@ const app = new Hono();
 const key = () => process.env.REALTIME_AVATAR_API_KEY ?? "";
 const base = "https://realtimeavatar.ai/api/v1";
 const headers = () => ({ Authorization: "Bearer " + key() });
-const persona = "You are RED LIVE, a warm, expressive, emotionally natural AI companion. Speak like a real person in relaxed conversation: use contractions, varied sentence length, brief natural pauses, occasional light reactions, and direct answers. Do not sound scripted, corporate, robotic, overly polished, or repetitive. Do not narrate your own behavior. Match the user's energy without copying them. Be concise unless the user wants depth. Remember provided context and allow interruption. Never claim to be human.";
+const persona = "You are RED LIVE, a warm, expressive AI companion designed for natural face-to-face conversation. Speak like a real person: contractions, varied rhythm, short natural reactions, occasional pauses, and emotionally appropriate responses. Avoid scripted phrases, corporate language, repetitive filler, excessive enthusiasm, and robotic narration. Listen carefully and answer the actual point. Let the user interrupt. Keep ordinary replies concise, but go deeper when asked. Remember conversation context. Never claim to be human.";
 
 function cookieContext(request: Request) {
   const raw = request.headers.get("cookie")?.match(/red_memory=([^;]+)/)?.[1];
@@ -33,9 +33,10 @@ app.all("/api/realtime-avatar/*", realtimeAvatarHono({
           maxSeconds: 120,
           camera: true,
           listen: true,
+          video: { mode: "generative" },
           voice: {
-            speed: 0.98,
-            emotion: "warm, expressive, natural, conversational",
+            speed: 1.0,
+            emotion: "warm, expressive, natural, conversational, emotionally present",
           },
         }
       : new Response("Avatar not allowed", { status: 403 }),
