@@ -64,7 +64,7 @@ function App() {
   const [connection, setConnection] =
     useState<AvatarConnectionDetails | null>(null);
   const [modal, setModal] = useState<
-    "memory" | "avatar" | "settings" | null
+    "memory" | "avatar" | "web" | "settings" | null
   >(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
@@ -358,7 +358,7 @@ function App() {
               </span>
             )}
             <span className="secure">
-              Full-duplex voice • interruption • camera-ready • persistent
+              Full-duplex voice • interruption • camera • persistent
               memory
             </span>
           </div>
@@ -397,7 +397,8 @@ function App() {
 
         <nav>
           <button onClick={() => setModal("memory")}>Memory</button>
-          <button onClick={() => setModal("avatar")}>Create avatar</button>\n          <button onClick={() => setModal("web")}>Web</button>
+          <button onClick={() => setModal("avatar")}>Create avatar</button>
+          <button onClick={() => setModal("web")}>Web</button>
           <button onClick={() => setModal("settings")}>Settings</button>
         </nav>
       </main>
