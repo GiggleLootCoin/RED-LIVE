@@ -1,12 +1,18 @@
 # RED LIVE
 
+> **RED LIVE — the face-to-face AI experience**
+
+<p align="center">
+  <img src="./public/assets/red-live-hero.webp" alt="RED LIVE official host artwork" width="900">
+</p>
+
+<p align="center">
+  <img src="./public/assets/red-live-showcase.webp" alt="RED LIVE official AI showcase artwork" width="900">
+</p>
+
 RED LIVE is the live-avatar application for persistent, hands-free AI conversations.
 
-![RED LIVE — live AI conversations](./assets/red-live-hero.svg)
-
 ## Experience
-
-![RED LIVE feature overview](./assets/red-live-features.svg)
 
 RED LIVE brings real-time animated avatars, natural voice conversation, memory, camera awareness and live web tools into one mobile-friendly experience.
 
@@ -21,26 +27,24 @@ Included:
 - Android-friendly installable web app
 - One Node/Hono service for both UI and secure API
 
-The Realtime Avatar documentation confirms the browser/server split, full-duplex voice, interruption, camera authorization and custom portrait avatar workflow.
-
 ## Deploy
 
-The repository includes render.yaml for a free Render web service. Render currently offers free web services, with idle spin-down and monthly limits.
+The repository includes `render.yaml` for a free Render web service.
 
 Required secret:
-REALTIME_AVATAR_API_KEY
+`REALTIME_AVATAR_API_KEY`
 
 Optional text-model variables:
-LLM_BASE_URL
-LLM_API_KEY
-LLM_MODEL
+`LLM_BASE_URL`
+`LLM_API_KEY`
+`LLM_MODEL`
 
 Never put the realtime provider key in browser code. The provider requires it to stay server-side.
 
 ## Local
 
-Run npm install, then set REALTIME_AVATAR_API_KEY on the server and run npm start. Open the resulting localhost address. Microphone access requires HTTPS or localhost.
+Run `npm install`, set `REALTIME_AVATAR_API_KEY` on the server, and run `npm start`. Open the resulting localhost address. Microphone access requires HTTPS or localhost.
 
 ## Cost
 
-Realtime Avatar currently provides a limited free Sandbox allowance; longer realtime usage is paid. Render provides a free web-service tier with limits. RED LIVE itself does not add a subscription or paywall.
+RED LIVE itself does not add a subscription or paywall.
