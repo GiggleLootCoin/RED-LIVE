@@ -26,7 +26,7 @@ app.all("/api/realtime-avatar/*", realtimeAvatarHono({
   // still keeps the API key server-side.
   authorize: () => undefined,
   session: async ({ request, avatarId }) =>
-    avatarId === "seed-rin-ashfall" || avatarId.startsWith("seed-") || avatarId.startsWith("ava_")
+    /^[A-Za-z0-9_-]{3,160}$/.test(avatarId)
       ? {
           instructions: persona,
           context: cookieContext(request),
@@ -129,7 +129,7 @@ app.get("/api/avatars", async c => {
     const payload = await r.json();
     const rows = Array.isArray(payload?.data) ? payload.data : [];
     const actual = rows
-      .filter((a: any) => a?.id && (String(a.id).startsWith("ava_") || String(a.id).startsWith("seed-")))
+      .filter((a: any) => a?.id)
       .map((a: any) => ({
         id: String(a.id),
         name: String(a.displayName || a.name || "Live Avatar"),
