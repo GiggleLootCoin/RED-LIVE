@@ -413,10 +413,17 @@ app.get("*", async c => {
       headers: { "content-type": types[extname(filePath)] || "application/octet-stream" },
     });
   } catch {
-    const data = await readFile(join(process.cwd(), "dist", "index.html"));
-    return new Response(data, {
-      headers: { "content-type": "text/html; charset=utf-8" },
-    });
+    if (c.req.path !== "/" && !c.req.path.endsWith(".html")) {
+      return new Response("Not found", { status: 404 });
+    }
+    try {
+      const data = await readFile(join(process.cwd(), "dist", "index.html"));
+      return new Response(data, {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    } catch {
+      return new Response("RED LIVE build is unavailable.", { status: 503 });
+    }
   }
 });
 
