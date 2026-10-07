@@ -36,10 +36,6 @@ app.all("/api/realtime-avatar/*", realtimeAvatarHono({
           // Use the realtime generative renderer so the character is
           // visibly animated while speaking.
           video: { mode: "generative" },
-          voice: {
-            speed: 1.0,
-            emotion: "warm, expressive, natural, conversational, emotionally present",
-          },
         }
       : new Response("Avatar not allowed", { status: 403 }),
 }));
