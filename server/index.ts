@@ -21,10 +21,6 @@ function cookieContext(request: Request) {
 
 app.all("/api/realtime-avatar/*", realtimeAvatarHono({
   apiKey: key,
-  authorize: ({ operation }) =>
-    operation === "connect" || operation === "end" || operation === "avatars" || operation === "credits"
-      ? undefined
-      : new Response("Not found", { status: 404 }),
   session: async ({ request, avatarId }) =>
     avatarId === "seed-rin-ashfall" || avatarId.startsWith("seed-") || avatarId.startsWith("ava_")
       ? {
@@ -33,6 +29,7 @@ app.all("/api/realtime-avatar/*", realtimeAvatarHono({
           maxSeconds: 120,
           camera: true,
           listen: true,
+          video: { mode: "generative" },
           voice: {
             speed: 1.0,
             emotion: "warm, expressive, natural, conversational, emotionally present",
@@ -73,28 +70,6 @@ app.get("/api/live-diagnostic", async c => {
     });
   } catch (e) {
     return c.json({ ok:false, error:e instanceof Error ? e.message : "Provider check failed" }, 502);
-  }
-});
-
-app.get("/api/live-diagnostic", async c => {
-  if (!key()) return c.json({ ok: false, error: "Live avatar API key is not configured." }, 503);
-  try {
-    const [creditsRes, avatarRes] = await Promise.all([
-      fetch(base + "/credits/balance", { headers: headers() }),
-      fetch(base + "/avatars/seed-rin-ashfall", { headers: headers() }),
-    ]);
-    const avatar = await avatarRes.json().catch(() => null);
-    const credits = await creditsRes.json().catch(() => null);
-    return c.json({
-      ok: creditsRes.ok && avatarRes.ok && avatar?.status === "ready",
-      creditsStatus: creditsRes.status,
-      avatarStatus: avatarRes.status,
-      avatarReady: avatar?.status === "ready",
-      credits: credits?.balance ?? credits?.available ?? null,
-      avatar: avatar ? { id: avatar.id, status: avatar.status, idleVideoStatus: avatar.idleVideoStatus, error: avatar.error ?? null } : null
-    });
-  } catch (e) {
-    return c.json({ ok: false, error: e instanceof Error ? e.message : "Provider check failed" }, 502);
   }
 });
 
