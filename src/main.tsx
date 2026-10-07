@@ -398,7 +398,28 @@ function App() {
               <button
                 className="primary"
                 disabled={avatarStatus !== "ready"}
-                onClick={() => { setCallMode("avatar"); setInCall(true); }}
+                onClick={async () => {
+                  setCallError("");
+                  setCallStatus("checking provider…");
+                  try {
+                    const r = await fetch("/api/live-diagnostic");
+                    const d = await r.json();
+                    if (!r.ok || !d.ok) {
+                      const detail = Array.isArray(d.errors) && d.errors.length
+                        ? d.errors.join(" • ")
+                        : d.error || "Live avatar service is not ready.";
+                      setCallError(detail);
+                      setCallStatus("");
+                      return;
+                    }
+                    setCallMode("avatar");
+                    setInCall(true);
+                    setCallStatus("connecting");
+                  } catch {
+                    setCallError("RED LIVE could not reach its live-avatar server.");
+                    setCallStatus("");
+                  }
+                }}
               >
                 {avatarStatus === "ready"
                   ? "Start live conversation"
@@ -421,7 +442,18 @@ function App() {
         </section>
         </section>
 
-        <section className="characters">
+        <section className="humanVision">
+  <div className="humanVisionHead">
+    <div><span className="eyebrow">NEXT-GENERATION AVATARS</span><h2>10 human characters. Built to feel real.</h2><p>Natural faces, believable styling, subtle expressions and distinct personalities.</p></div>
+    <span className="humanVisionBadge">PHOTOREAL</span>
+  </div>
+  <div className="humanVisionGrid">
+    <div className="humanVisionCard"><div className="humanSilhouette h1"><span>1</span></div><b>Ava</b><small>British • 20s</small><em>Warm / curious</em></div><div className="humanVisionCard"><div className="humanSilhouette h2"><span>2</span></div><b>Maya</b><small>South Asian • 30s</small><em>Sharp / friendly</em></div><div className="humanVisionCard"><div className="humanSilhouette h3"><span>3</span></div><b>Sophie</b><small>European • 30s</small><em>Calm / witty</em></div><div className="humanVisionCard"><div className="humanSilhouette h4"><span>4</span></div><b>Jordan</b><small>Black British • 30s</small><em>Confident / relaxed</em></div><div className="humanVisionCard"><div className="humanSilhouette h5"><span>5</span></div><b>Daniel</b><small>British • 30s</small><em>Thoughtful / dry</em></div><div className="humanVisionCard"><div className="humanSilhouette h6"><span>6</span></div><b>Leah</b><small>Mixed heritage • 20s</small><em>Creative / warm</em></div><div className="humanVisionCard"><div className="humanSilhouette h7"><span>7</span></div><b>Marcus</b><small>Black • 40s</small><em>Grounded / direct</em></div><div className="humanVisionCard"><div className="humanSilhouette h8"><span>8</span></div><b>Elena</b><small>Mediterranean • 30s</small><em>Expressive / bright</em></div><div className="humanVisionCard"><div className="humanSilhouette h9"><span>9</span></div><b>Ryan</b><small>British • 20s</small><em>Easygoing / curious</em></div><div className="humanVisionCard"><div className="humanSilhouette h10"><span>10</span></div><b>Nadia</b><small>Middle Eastern • 30s</small><em>Focused / warm</em></div>
+  </div>
+  <p className="humanVisionNote">These are the ten character designs for the real-avatar generation layer. The live provider only treats a character as callable after its avatar assets are generated and ready.</p>
+</section>
+
+<section className="characters">
           <div className="chatHead">
             <b>Choose your live human</b>
             <span>{avatars.filter((a) => a.status === "ready").length} live</span>
