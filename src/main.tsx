@@ -427,21 +427,36 @@ function App() {
                   setCallError("");
                   setCallStatus("checking provider…");
                   try {
-                    const r = await fetch("/api/live-diagnostic");
-                    const d = await r.json();
-                    if (!r.ok || !d.ok) {
-                      const detail = Array.isArray(d.errors) && d.errors.length
-                        ? d.errors.join(" • ")
-                        : d.error || "Live avatar service is not ready.";
-                      setCallError(detail);
-                      setCallStatus("");
-                      return;
+                    // Ask for the microphone from the same user gesture that starts
+                    // the call. This avoids a second hidden permission step inside
+                    // the live-avatar component.
+                    if (!navigator.mediaDevices?.getUserMedia) {
+                      throw new Error("This browser cannot access the microphone.");
                     }
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                      audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                        channelCount: 1,
+                      },
+                    });
+                    stream.getTracks().forEach((track) => track.stop());
+
+                    // Do not gate the actual call on a separate provider read.
+                    // A read-only avatar/credit check can fail independently of the
+                    // connect operation and was causing false "not ready" blocks.
+                    setMicReady(true);
                     setCallMode("avatar");
                     setInCall(true);
                     setCallStatus("connecting");
-                  } catch {
-                    setCallError("RED LIVE could not reach its live-avatar server.");
+                  } catch (e) {
+                    setMicReady(false);
+                    setCallError(
+                      e instanceof Error
+                        ? e.message + " Allow Microphone for this site in Brave and try again."
+                        : "Microphone access failed. Allow Microphone for this site in Brave and try again."
+                    );
                     setCallStatus("");
                   }
                 }}
