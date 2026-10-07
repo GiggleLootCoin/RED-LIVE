@@ -189,7 +189,7 @@ function App() {
               style={{width:"100%",height:"100%"}} onStatusChange={s => {setCallStatus(s); if(s==="live") setCallError("");}}
               onConnectionDetailsChange={setConnection}
               onEnded={({reason}) => {setInCall(false);setCallStatus("ended");setCallError(reason ? String(reason) : "The session ended.");setConnection(null);}}>
-              {call => <><LiveWebTools/><div className="liveBar"><CameraButton active={inCall}/><div className="liveState"><b>{call.status === "waiting" ? "WAITING " + call.queuePosition : call.status.toUpperCase()}</b>{connection?.localQuality && <small> · {connection.localQuality}</small>}</div><button className="endButton" onClick={call.end}>End</button></div>}
+              {call => <><LiveWebTools/><div className="liveBar"><CameraButton active={inCall}/><div className="liveState"><b>{call.status === "waiting" ? "WAITING " + call.queuePosition : call.status.toUpperCase()}</b>{connection?.localQuality && <small> · {connection.localQuality}</small>}</div><button className="endButton" onClick={call.end}>End</button></div></>}
             </AvatarCall> : idle ? <video className="avatarMedia" src={idle} poster={poster || undefined} autoPlay muted loop playsInline/> : poster ? <img className="avatarMedia" src={poster} alt={selected.name}/> : <div className="noAvatar"><b>{selected.name}</b><span>Live avatar</span></div>}
             <div className="namePlate"><b>{selected.name}</b><span>{avatarStatus === "ready" ? "LIVE-READY" : avatarStatus}</span></div>
           </div>
