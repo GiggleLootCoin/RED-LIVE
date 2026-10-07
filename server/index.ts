@@ -152,7 +152,7 @@ app.post("/api/avatar/create-from-url", async c => {
     const body = await c.req.json();
     const imageUrl = typeof body.imageUrl === "string" ? body.imageUrl : "";
     const displayName = typeof body.displayName === "string" ? body.displayName.slice(0, 80) : "RED LIVE Avatar";
-    const motionPrompt = typeof body.motionPrompt === "string" ? body.motionPrompt.slice(0, 1000) : "Natural conversational presence with subtle breathing, eye movement, listening behavior and restrained expressive gestures.";
+    const motionPrompt = typeof body.motionPrompt === "string" ? body.motionPrompt.slice(0, 1000) : "Natural conversational presence with visible breathing, blinking, eye movement, attentive listening reactions, subtle head and shoulder movement, expressive facial micro-movements, and restrained conversational gestures.";
     if (!/^https:\/\//i.test(imageUrl)) return c.json({ error: "Secure image URL required." }, 400);
 
     const source = await fetch(imageUrl);
@@ -178,7 +178,7 @@ app.post("/api/avatar/create-from-url", async c => {
         displayName,
         sourceAssetId: asset.id,
         motionPrompt,
-        voice: { auto_description: "Natural adult human voice, warm and emotionally expressive, conversational rather than announcer-like, realistic pacing, subtle breaths, natural pauses, varied intonation, no cartoon affect, no exaggerated character voice." }
+        voice: { auto_description: "Natural, character-appropriate conversational voice, warm and emotionally expressive, realistic pacing, subtle breaths, natural pauses, varied intonation, responsive listening, no announcer or call-centre delivery, and no exaggerated cartoon affect." }
       })
     });
     const avatar = await created.json().catch(() => ({}));
@@ -206,7 +206,7 @@ app.post("/api/avatar/create", async c => {
     const name = String(form.get("name") || "RED Avatar").slice(0, 160);
     const motionPrompt = String(
       form.get("motionPrompt") ||
-        "Natural subtle idle movement, relaxed expression, occasional gentle head movement."
+        "Natural breathing and blinking, expressive eye movement, attentive listening, subtle head and shoulder movement, small facial micro-expressions, and restrained conversational gestures."
     ).slice(0, 1200);
 
     if (!(file instanceof File)) {
