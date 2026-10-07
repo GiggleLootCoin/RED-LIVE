@@ -22,7 +22,7 @@ function cookieContext(request: Request) {
 app.all("/api/realtime-avatar/*", realtimeAvatarHono({
   apiKey: key,
   authorize: ({ operation }) =>
-    operation === "connect" || operation === "end"
+    operation === "connect" || operation === "end" || operation === "avatars" || operation === "credits"
       ? undefined
       : new Response("Not found", { status: 404 }),
   session: async ({ request, avatarId }) =>
