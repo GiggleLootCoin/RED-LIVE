@@ -200,3 +200,132 @@ body{
   .heroActions{min-height:240px;padding:17px;border-radius:21px}
   .characterGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+/* RED LIVE — premium product redesign */
+:root{
+ --ink:#070910;--panel:rgba(14,17,27,.78);--panel2:rgba(20,24,36,.9);
+ --line:rgba(255,255,255,.11);--soft:rgba(255,255,255,.055);
+ --accent:#ff526f;--accent2:#8c7cff;--muted:#8c96aa;
+}
+body{
+ min-width:320px;
+ background:
+ radial-gradient(900px 650px at 10% 0%,rgba(255,82,111,.10),transparent 58%),
+ radial-gradient(900px 650px at 90% 10%,rgba(110,95,255,.10),transparent 58%),
+ #030408;
+}
+.app{
+ max-width:1400px;
+ padding:0 clamp(14px,4vw,52px) 50px;
+ background:
+ radial-gradient(1100px 700px at 50% -15%,rgba(37,45,72,.82),transparent 68%),
+ linear-gradient(180deg,#080b13 0%,#03050a 65%);
+}
+.topbar{
+ max-width:1240px;margin:auto;padding:25px 0 19px;
+ border-bottom:1px solid rgba(255,255,255,.07);
+}
+.brandBlock{gap:14px}
+.logo{font-size:27px;letter-spacing:.22em}
+.tag{letter-spacing:.04em}
+.heroStage{max-width:1240px;padding-top:22px}
+.presenceLine{
+ max-width:none;width:100%;padding:9px 14px;margin-bottom:15px;
+ background:rgba(255,255,255,.025);
+ border-color:rgba(255,255,255,.08);
+}
+.hero{
+ grid-template-columns:minmax(0,820px) 350px;
+ gap:24px;
+}
+.avatarWrap{
+ min-height:500px;
+ aspect-ratio:16/10;
+ border-radius:34px;
+ border:1px solid rgba(255,255,255,.17);
+ box-shadow:0 40px 120px rgba(0,0,0,.62),0 0 100px rgba(112,102,255,.07);
+}
+.avatarWrap:before{
+ content:"";
+ position:absolute;inset:0;border-radius:34px;z-index:2;pointer-events:none;
+ background:
+ linear-gradient(90deg,rgba(0,0,0,.22),transparent 18%,transparent 82%,rgba(0,0,0,.25)),
+ linear-gradient(180deg,rgba(255,255,255,.08),transparent 18%,transparent 68%,rgba(0,0,0,.48));
+}
+.avatarWrap:after{z-index:3}
+.heroActions{
+ position:relative;
+ min-height:500px;padding:24px;
+ border-radius:28px;
+ background:linear-gradient(165deg,rgba(22,27,41,.88),rgba(8,11,18,.82));
+ border:1px solid rgba(255,255,255,.12);
+ box-shadow:0 25px 80px rgba(0,0,0,.35);
+ backdrop-filter:blur(25px);
+}
+.liveCapabilityCard{
+ display:flex;gap:11px;align-items:center;
+ padding:12px 13px;border-radius:16px;
+ background:rgba(255,255,255,.035);
+ border:1px solid rgba(255,255,255,.08);
+}
+.liveCapabilityCard b{display:block;font-size:9px;letter-spacing:.16em}
+.liveCapabilityCard small{display:block;color:#8c96aa;font-size:10px;margin-top:4px;line-height:1.35}
+.livePulse{
+ width:9px;height:9px;flex:none;border-radius:50%;
+ background:#66efa0;box-shadow:0 0 0 5px rgba(102,239,160,.08),0 0 22px rgba(102,239,160,.75);
+}
+.heroActions:before{display:none}
+.heroActions .primary{
+ min-height:58px;border-radius:18px;
+ color:white;background:linear-gradient(135deg,#ff4969,#ff7a5c);
+ box-shadow:0 16px 42px rgba(255,73,105,.24);
+}
+.secure{
+ font-size:10px;line-height:1.55;color:#7f899d;
+}
+.stageFeatures{margin-top:18px}
+.stageFeatures span{padding:8px 12px}
+.characters{
+ max-width:1240px;margin-top:38px;padding:22px;
+ border-radius:28px;background:linear-gradient(180deg,rgba(15,19,29,.82),rgba(7,10,16,.7));
+ border:1px solid rgba(255,255,255,.09);
+ box-shadow:0 25px 80px rgba(0,0,0,.25);
+}
+.characters .chatHead b{font-size:15px}
+.characterGrid{
+ grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:14px;
+}
+.characterCard{
+ border-radius:20px;
+ background:linear-gradient(145deg,rgba(255,255,255,.065),rgba(255,255,255,.025));
+}
+.characterCard img,.characterFallback{aspect-ratio:4/5}
+.characterCard span{font-size:13px;font-weight:800;padding:11px 12px 2px}
+.characterCard:after{
+ top:10px;right:10px;background:rgba(4,6,10,.75);color:#9df0bd;
+}
+.characterCard.selected{
+ border-color:rgba(255,255,255,.7);
+ box-shadow:0 0 0 1px rgba(255,255,255,.12),0 18px 42px rgba(0,0,0,.38);
+}
+.chat{
+ max-width:1240px;border-radius:24px;background:rgba(7,10,16,.7);
+}
+.composer input{height:52px}
+.composer button{min-width:110px}
+.callOverlay{
+ left:16px;right:16px;bottom:16px;border-radius:17px;
+ background:rgba(3,5,9,.86);border-color:rgba(255,255,255,.14);
+}
+@media(max-width:900px){
+ .hero{grid-template-columns:1fr}
+ .heroActions{min-height:300px}
+ .avatarWrap{min-height:0;aspect-ratio:4/5}
+ .characterGrid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:560px){
+ .characterGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ .characters{padding:14px}
+ .heroActions{padding:17px}
+ .logo{font-size:22px}
+}
