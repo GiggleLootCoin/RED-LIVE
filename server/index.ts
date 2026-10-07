@@ -65,9 +65,10 @@ app.all("/api/realtime-avatar/*", realtimeAvatarHono({
           camera: true,
           listen: true,
           clientTools: true,
-          // Keep the provider's generated portrait loop and motion library.
-          // This gives the character breathing, blinking, listening reactions
-          // and gestures without forcing the less predictable generative mode.
+          // Render the character live so speech produces real-time facial/body motion.
+          // The provider's generative backend is the supported live-video path.
+          video: { mode: "generative" },
+          ...(sessionVoice() ? { voice: sessionVoice() } : {}),
           };
         })()
       : new Response("Avatar not allowed", { status: 403 }),
