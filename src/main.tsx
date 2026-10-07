@@ -465,7 +465,20 @@ function App() {
         </div>
       )}
 
-      {modal === "web" && (\n        <div className="modal">\n          <div className="sheet">\n            <button className="close" onClick={() => setModal(null)}>×</button>\n            <h2>Web search</h2>\n            <p>Search the web from RED LIVE when a search provider is configured on the server.</p>\n            <div className="webRow"><input value={webQuery} onChange={(e) => setWebQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && webSearch()} placeholder="Search the web…" /><button onClick={webSearch} disabled={busy}>Search</button></div>\n            <div className="results">{webResults.map((r) => <article key={r.url}><a href={r.url} target="_blank" rel="noreferrer">{r.title}</a><p>{r.snippet}</p></article>)}</div>\n            {notice && <div className="notice">{notice}</div>}\n          </div>\n        </div>\n      )}\n\n      {modal === "settings" && (
+      {modal === "web" && (
+        <div className="modal">
+          <div className="sheet">
+            <button className="close" onClick={() => setModal(null)}>×</button>
+            <h2>Web search</h2>
+            <p>Search the web from RED LIVE when a search provider is configured on the server.</p>
+            <div className="webRow"><input value={webQuery} onChange={(e) => setWebQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && webSearch()} placeholder="Search the web…" /><button onClick={webSearch} disabled={busy}>Search</button></div>
+            <div className="results">{webResults.map((r) => <article key={r.url}><a href={r.url} target="_blank" rel="noreferrer">{r.title}</a><p>{r.snippet}</p></article>)}</div>
+            {notice && <div className="notice">{notice}</div>}
+          </div>
+        </div>
+      )}
+
+      {modal === "settings" && (
         <div className="modal">
           <div className="sheet">
             <button className="close" onClick={() => setModal(null)}>
