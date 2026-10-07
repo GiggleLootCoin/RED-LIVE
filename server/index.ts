@@ -57,17 +57,9 @@ app.all("/api/realtime-avatar/*", realtimeAvatarHono({
   // The SDK may use the read operations for balance/avatar state.
   // Only the actual connect/end operations are sensitive here; the provider
   // still keeps the API key server-side.
-  authorize: async ({ request, operation }) => {
-    if (operation !== "connect") return;
-    if (!key()) return new Response("Avatar provider is not configured.", { status: 503 });
-    // RED LIVE is intentionally a single-user creator app, but the connect route
-    // is still a public HTTP endpoint. Do the safety/readiness gate server-side;
-    // never trust the avatar id or readiness reported by the browser.
-    const avatarId = new URL(request.url).searchParams.get("avatarId") || "";
-    if (!isAvatarIdAllowed(avatarId)) {
-      return new Response("Avatar is not allowed.", { status: 403 });
-    }
-  },
+  // Session policy below is the authoritative avatar allowlist/readiness gate.
+  // The adapter's authorize hook does not receive avatarId in its documented shape.
+  authorize: () => undefined,
   session: async ({ request, avatarId }) =>
     isAvatarIdAllowed(avatarId)
       ? await (async () => {
