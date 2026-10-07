@@ -10,18 +10,8 @@ const base = "https://realtimeavatar.ai/api/v1";
 const headers = () => ({ Authorization: "Bearer " + key() });
 const persona = "You are RED LIVE, a highly natural conversational AI companion. Speak in a relaxed, human conversational rhythm with contractions, varied sentence length, brief natural reactions and occasional pauses. Sound like a real person, not a cartoon, announcer, presenter, chatbot or call-centre agent. Use natural conversational phrasing, realistic pacing and understated emotion. Do not repeat greetings or filler. Listen while the user speaks and respond directly to what they actually said. Let the user interrupt. Keep ordinary replies concise and expand when useful. Use the supplied conversation context as memory. Never claim to be human.";
 
-const FALLBACK_AVATAR_IDS = new Set([
-  "seed-rin-ashfall",
-  "seed-vesper-nyx",
-  "seed-professor-thistle",
-  "seed-valko",
-  "seed-remy",
-  "seed-koko",
-  "seed-luciano-draven",
-]);
-
 function isAvatarIdAllowed(id: string) {
-  return FALLBACK_AVATAR_IDS.has(id) || /^ava_[A-Za-z0-9_-]+$/.test(id);
+  return /^ava_[A-Za-z0-9_-]+$/.test(id);
 }
 
 async function getProviderAvatar(id: string) {
@@ -30,14 +20,6 @@ async function getProviderAvatar(id: string) {
   if (!r.ok) return null;
   return await r.json().catch(() => null);
 }
-
-function isAvatarSafeForREDLive(avatar: any) {
-  if (!avatar?.id) return false;
-  const label = [avatar.displayName, avatar.name, avatar.description, avatar.persona]
-    .filter(Boolean).join(" ");
-  return !isPublicFigureLabel(label);
-}
-
 
 function isPublicFigureLabel(value: string) {
   return /(^|\s)(celebrity|politician|president|prime minister|king|queen|world leader|public figure)($|\s)/i.test(value);
@@ -85,35 +67,30 @@ app.all("/api/realtime-avatar/*", realtimeAvatarHono({
 app.get("/api/live-diagnostic", async c => {
   if (!key()) return c.json({ ok: false, error: "REALTIME_AVATAR_API_KEY is not configured on the server." }, 503);
   try {
-    const [creditsRes, avatarRes] = await Promise.all([
+    const [creditsRes, avatarsRes] = await Promise.all([
       fetch(base + "/credits/balance", { headers: headers() }),
-      fetch(base + "/avatars/seed-rin-ashfall", { headers: headers() }),
+      fetch(base + "/avatars", { headers: headers() }),
     ]);
-    const creditsText = await creditsRes.text();
-    const avatarText = await avatarRes.text();
-    let credits:any = null, avatar:any = null;
-    try { credits = JSON.parse(creditsText); } catch {}
-    try { avatar = JSON.parse(avatarText); } catch {}
+    const credits = await creditsRes.json().catch(() => null);
+    const payload = await avatarsRes.json().catch(() => null);
+    const rows = Array.isArray(payload?.data) ? payload.data : [];
+    const allowed = rows.filter((a:any) => /^ava_[A-Za-z0-9_-]+$/.test(String(a?.id)) && !isPublicFigureLabel(String(a?.displayName || a?.name || "")));
+    const ready = allowed.filter((a:any) => a.status === "ready");
     return c.json({
-      ok: creditsRes.ok && avatarRes.ok && avatar?.status === "ready",
+      ok: creditsRes.ok && avatarsRes.ok && ready.length > 0,
       creditsStatus: creditsRes.status,
-      avatarStatus: avatarRes.status,
-      avatarReady: avatar?.status === "ready",
+      avatarStatus: avatarsRes.status,
+      avatarReady: ready.length > 0,
       credits: credits?.balance ?? credits?.available ?? credits?.credits ?? null,
-      avatar: avatar ? {
-        id: avatar.id,
-        status: avatar.status,
-        idleVideoStatus: avatar.idleVideoStatus,
-        error: avatar.error ?? null
-      } : null,
+      avatars: allowed.map((a:any) => ({ id:a.id, name:a.displayName || a.name || "Live Avatar", status:a.status, idleVideoStatus:a.idleVideoStatus, error:a.error ?? null })),
       errors: [
         !creditsRes.ok ? `Credits endpoint HTTP ${creditsRes.status}` : "",
-        !avatarRes.ok ? `Rin endpoint HTTP ${avatarRes.status}` : "",
-        avatar && avatar.status !== "ready" ? `Rin avatar status: ${avatar.status}` : ""
+        !avatarsRes.ok ? `Avatar list endpoint HTTP ${avatarsRes.status}` : "",
+        avatarsRes.ok && ready.length === 0 ? "No permitted READY platform avatars are available." : ""
       ].filter(Boolean)
     });
   } catch (e) {
-    return c.json({ ok:false, error:e instanceof Error ? e.message : "Provider check failed" }, 502);
+    return c.json({ok:false,error:e instanceof Error?e.message:"Provider check failed"},502);
   }
 });
 
@@ -153,37 +130,24 @@ app.post("/api/memory", async c => {
 });
 
 app.get("/api/avatars", async c => {
-  const fallback = [
-    { id: "seed-rin-ashfall", name: "Rin Ashfall", status: "ready", poster: "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/portrait.png", idle: "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4" },
-    { id: "seed-vesper-nyx", name: "Vesper Nyx", status: "ready", poster: "https://realtimeavatar.ai/api/assets/public/characters/vesper-nyx/portrait.png" },
-    { id: "seed-professor-thistle", name: "Professor Thistle", status: "ready", poster: "https://realtimeavatar.ai/api/assets/public/characters/professor-thistle/portrait.png" },
-    { id: "seed-valko", name: "Valko", status: "ready", poster: "https://realtimeavatar.ai/api/assets/public/characters/valko/portrait.png" },
-    { id: "seed-remy", name: "Remy", status: "ready", poster: "https://realtimeavatar.ai/api/assets/public/characters/remy/portrait.png" },
-    { id: "seed-koko", name: "Koko", status: "ready", poster: "https://realtimeavatar.ai/api/assets/public/characters/koko/portrait.png" },
-    { id: "seed-luciano-draven", name: "Luciano Draven", status: "ready", poster: "https://realtimeavatar.ai/api/assets/public/characters/luciano-draven/portrait.png" },
-  ];
-
-  if (!key()) return c.json({ avatars: fallback });
-
+  if (!key()) return c.json({ avatars: [], error: "Realtime Avatar server key is not configured." }, 503);
   try {
     const r = await fetch(base + "/avatars", { headers: headers() });
-    if (!r.ok) return c.json({ avatars: fallback });
+    if (!r.ok) return c.json({ avatars: [], error: `Avatar provider returned HTTP ${r.status}.` }, r.status as any);
     const payload = await r.json();
     const rows = Array.isArray(payload?.data) ? payload.data : [];
-    const actual = rows
-      .filter((a: any) => a?.id && isAvatarIdAllowed(String(a.id)) && !isPublicFigureLabel(String(a.displayName || a.name || "")))
-      .map((a: any) => ({
-        id: String(a.id),
-        name: String(a.displayName || a.name || "Live Avatar"),
-        status: String(a.status || "unknown"),
-        poster: a.posterUrl || a.poster_url || a.anchor?.url || null,
-        idle: a.idleVideoUrl || a.idle_video_url || a.video?.url || null,
+    const avatars = rows
+      .filter((a:any) => /^ava_[A-Za-z0-9_-]+$/.test(String(a?.id)) && !isPublicFigureLabel(String(a?.displayName || a?.name || "")))
+      .map((a:any) => ({
+        id:String(a.id),
+        name:String(a.displayName || a.name || "Live Avatar"),
+        status:String(a.status || "unknown"),
+        poster:a.posterUrl || a.poster_url || a.anchor?.url || null,
+        idle:a.idleVideoUrl || a.idle_video_url || a.video?.url || null,
       }));
-    const map = new Map<string, any>();
-    for (const a of [...fallback, ...actual]) map.set(a.id, a);
-    return c.json({ avatars: [...map.values()] });
+    return c.json({ avatars });
   } catch {
-    return c.json({ avatars: fallback });
+    return c.json({ avatars: [], error: "Avatar provider could not be reached." }, 502);
   }
 });
 
