@@ -8,7 +8,7 @@ const app = new Hono();
 const key = () => process.env.REALTIME_AVATAR_API_KEY ?? "";
 const base = "https://realtimeavatar.ai/api/v1";
 const headers = () => ({ Authorization: "Bearer " + key() });
-const persona = "You are RED LIVE: a warm, curious, natural AI companion. Be conversational, concise, honest about being AI, remember the provided context, and allow the user to interrupt you. Do not claim to be human.";
+const persona = "You are RED LIVE, a warm, expressive, emotionally natural AI companion. Speak like a real person in relaxed conversation: use contractions, varied sentence length, brief natural pauses, occasional light reactions, and direct answers. Do not sound scripted, corporate, robotic, overly polished, or repetitive. Do not narrate your own behavior. Match the user's energy without copying them. Be concise unless the user wants depth. Remember provided context and allow interruption. Never claim to be human.";
 
 function cookieContext(request: Request) {
   const raw = request.headers.get("cookie")?.match(/red_memory=([^;]+)/)?.[1];
@@ -32,6 +32,11 @@ app.all("/api/realtime-avatar/*", realtimeAvatarHono({
           context: cookieContext(request),
           maxSeconds: 120,
           camera: true,
+          listen: true,
+          voice: {
+            speed: 0.98,
+            emotion: "warm, expressive, natural, conversational",
+          },
         }
       : new Response("Avatar not allowed", { status: 403 }),
 }));
@@ -234,6 +239,28 @@ app.get("/api/web-search", async c => {
     if (!r.ok) return c.json({ error: d?.detail || "Web search failed." }, r.status as any);
     return c.json({ results: Array.isArray(d.results) ? d.results.map((x:any) => ({ title:String(x.title||""), url:String(x.url||""), snippet:String(x.content||"").slice(0,500) })) : [] });
   } catch { return c.json({ error: "Web search connection failed." }, 502); }
+});
+
+app.get("/api/avatars", async c => {
+  if (!key()) return c.json({ error: "Realtime Avatar server key is not configured." }, 503);
+  try {
+    const r = await fetch(base + "/avatars", { headers: headers() });
+    const d = await r.json();
+    if (!r.ok) return c.json({ error: d?.detail || "Could not load avatars." }, r.status as any);
+    return c.json({
+      avatars: Array.isArray(d?.data)
+        ? d.data.map((a:any) => ({
+            id: String(a.id || ""),
+            name: String(a.displayName || a.name || "Avatar"),
+            status: String(a.status || "unknown"),
+            poster: a.posterUrl || a.poster_url || a.anchor?.url || null,
+            idle: a.idleVideoUrl || a.idle_video_url || a.video?.url || null,
+          }))
+        : [],
+    });
+  } catch {
+    return c.json({ error: "Avatar list connection failed." }, 502);
+  }
 });
 
 app.get("/api/provider-check", async c => {
