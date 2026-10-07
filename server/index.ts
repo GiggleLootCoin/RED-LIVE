@@ -12,7 +12,7 @@ const persona = "You are RED LIVE, a highly natural conversational AI companion.
 
 
 function isPublicFigureLabel(value: string) {
-  return /(^|\\s)(celebrity|politician|president|prime minister|king|queen|world leader|public figure)($|\\s)/i.test(value);
+  return /(^|\s)(celebrity|politician|president|prime minister|king|queen|world leader|public figure)($|\s)/i.test(value);
 }
 
 function cookieContext(request: Request) {
