@@ -8,7 +8,12 @@ const app = new Hono();
 const key = () => process.env.REALTIME_AVATAR_API_KEY ?? "";
 const base = "https://realtimeavatar.ai/api/v1";
 const headers = () => ({ Authorization: "Bearer " + key() });
-const persona = "You are RED LIVE, a highly natural conversational AI companion. Speak in a relaxed, human conversational rhythm with contractions, varied sentence length, brief natural reactions and occasional pauses. Do not sound like a presenter, chatbot, call-centre agent or scripted character. Do not repeat greetings or filler. Listen while the user speaks and respond directly to what they actually said. Be warm without being artificially enthusiastic. Let the user interrupt. Keep ordinary replies concise and expand when useful. Use the supplied conversation context as memory. Never claim to be human.";
+const persona = "You are RED LIVE, a highly natural conversational AI companion. Speak in a relaxed, human conversational rhythm with contractions, varied sentence length, brief natural reactions and occasional pauses. Sound like a real person, not a cartoon, announcer, presenter, chatbot or call-centre agent. Use natural conversational phrasing, realistic pacing and understated emotion. Do not repeat greetings or filler. Listen while the user speaks and respond directly to what they actually said. Let the user interrupt. Keep ordinary replies concise and expand when useful. Use the supplied conversation context as memory. Never claim to be human.";
+
+
+function isPublicFigureLabel(value: string) {
+  return /(^|\\s)(celebrity|politician|president|prime minister|king|queen|world leader|public figure)($|\\s)/i.test(value);
+}
 
 function cookieContext(request: Request) {
   const raw = request.headers.get("cookie")?.match(/red_memory=([^;]+)/)?.[1];
@@ -34,9 +39,9 @@ app.all("/api/realtime-avatar/*", realtimeAvatarHono({
           camera: true,
           listen: true,
           clientTools: true,
-          // Use the realtime generative renderer so the character is
-          // visibly animated while speaking.
-          video: { mode: "generative" },
+          // Keep the provider's generated portrait loop and motion library.
+          // This gives the character breathing, blinking, listening reactions
+          // and gestures without forcing the less predictable generative mode.
         }
       : new Response("Avatar not allowed", { status: 403 }),
 }));
@@ -130,7 +135,7 @@ app.get("/api/avatars", async c => {
     const payload = await r.json();
     const rows = Array.isArray(payload?.data) ? payload.data : [];
     const actual = rows
-      .filter((a: any) => a?.id)
+      .filter((a: any) => a?.id && !isPublicFigureLabel(String(a.displayName || a.name || "")))
       .map((a: any) => ({
         id: String(a.id),
         name: String(a.displayName || a.name || "Live Avatar"),
@@ -204,6 +209,7 @@ app.post("/api/avatar/create", async c => {
     const form = await c.req.formData();
     const file = form.get("file");
     const name = String(form.get("name") || "RED Avatar").slice(0, 160);
+    const policyAccepted = String(form.get("policyAccepted") || "") === "true";
     const motionPrompt = String(
       form.get("motionPrompt") ||
         "Natural breathing and blinking, expressive eye movement, attentive listening, subtle head and shoulder movement, small facial micro-expressions, and restrained conversational gestures."
@@ -211,6 +217,12 @@ app.post("/api/avatar/create", async c => {
 
     if (!(file instanceof File)) {
       return c.json({ error: "Portrait image is required." }, 400);
+    }
+    if (!policyAccepted) {
+      return c.json({ error: "Confirm that the portrait is original, licensed, or used with permission, and is not a celebrity, politician, world leader, or other public figure." }, 400);
+    }
+    if (isPublicFigureLabel(name) || isPublicFigureLabel(motionPrompt)) {
+      return c.json({ error: "Public-figure avatars are not allowed in RED LIVE." }, 400);
     }
     if (!/^image\/(png|jpeg|webp)$/.test(file.type)) {
       return c.json({ error: "Use a PNG, JPEG, or WebP portrait." }, 400);
