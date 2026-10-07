@@ -53,7 +53,7 @@ function App() {
   const [avatarId, setAvatarId] = useState(saved.avatarId || DEFAULT_ID);
   const [portrait, setPortrait] = useState("");
   const [avatarMedia, setAvatarMedia] = useState<{ poster?: string; idle?: string }>({});
-  const [avatars, setAvatars] = useState<AvatarChoice[]>([]);
+  const [avatars, setAvatars] = useState<AvatarChoice[]>([{ id: DEFAULT_ID, name: "Rin", status: "ready", poster: POSTER, idle: IDLE }]);
   const [micReady, setMicReady] = useState<boolean | null>(null);
   const [avatarStatus, setAvatarStatus] = useState(saved.avatarStatus || "ready");
   const [name, setName] = useState(saved.name || "RED");
@@ -97,7 +97,7 @@ function App() {
     fetch("/api/avatars")
       .then((r) => r.json())
       .then((d) => {
-        if (!stop && Array.isArray(d.avatars)) setAvatars(d.avatars);
+        if (!stop && Array.isArray(d.avatars)) setAvatars((current) => { const fetched = d.avatars as AvatarChoice[]; return fetched.some((a) => a.id === DEFAULT_ID) ? fetched : [{ id: DEFAULT_ID, name: "Rin", status: "ready", poster: POSTER, idle: IDLE }, ...fetched]; });
       })
       .catch(() => {});
     return () => { stop = true; };
@@ -288,7 +288,7 @@ function App() {
           <div className="logo">
             RED <b>LIVE</b>
           </div>
-          <div className="tag">Live AI Chats Unleashed</div>
+          <div className="tag">Face-to-face AI • voice • vision • memory</div>
         </div>
         <button className="ghost" onClick={() => setModal("settings")}>
           ⚙
@@ -296,7 +296,7 @@ function App() {
       </header>
 
       <main>
-        <section className="hero">
+        <section className="heroStage">\n          <div className="presenceLine"><span className="presenceDot"></span><span>{inCall ? "LIVE CONVERSATION" : "RED LIVE"}</span><span className="presenceHint">{inCall ? "Full duplex" : "Ready when you are"}</span></div>\n          <section className="hero">
           <div className="avatarWrap">
             {inCall ? (
               <AvatarCall
@@ -392,8 +392,8 @@ function App() {
 
         <section className="characters">
           <div className="chatHead">
-            <b>Characters</b>
-            <span>{avatars.filter((a) => a.status === "ready").length} ready</span>
+            <b>Choose your AI human</b>
+            <span>{avatars.filter((a) => a.status === "ready").length} available</span>
           </div>
           <div className="characterGrid">
             {avatars.filter((a) => a.status === "ready").map((a) => (
@@ -486,10 +486,10 @@ function App() {
             <button className="close" onClick={() => setModal(null)}>
               ×
             </button>
-            <h2>Create your avatar</h2>
+            <h2>Create an AI human</h2>
             <p>
-              Upload one clear portrait. RED LIVE creates the talking avatar
-              server-side; creation can take a minute or two.
+              Upload a clear portrait. RED LIVE creates the talking avatar
+              server-side; creation can take a little time. You control the name, personality and movement.
             </p>
             <input
               id="avatarFile"
@@ -537,7 +537,7 @@ function App() {
             <button className="close" onClick={() => setModal(null)}>
               ×
             </button>
-            <h2>RED LIVE</h2>
+            <h2>RED LIVE settings</h2>
             <p>
               Avatar: <b>{avatarId}</b>
             </p>
