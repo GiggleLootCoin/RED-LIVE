@@ -4,41 +4,50 @@ import {AvatarCall,createProxyClient} from "realtime-avatar/react";
 import "./style.css";
 
 type Msg={role:"user"|"assistant";content:string;ts:number};
-const STORE="red-live-v2";
-const AVATAR="seed-rin-ashfall";
+const STORE="red-live-v3";
+const DEFAULT_ID="seed-rin-ashfall";
 const IDLE="https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4";
 const POSTER="https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/portrait.png";
+const read=()=>{try{return JSON.parse(localStorage.getItem(STORE)||"{}")}catch{return {}}};
 
-function load(){try{return JSON.parse(localStorage.getItem(STORE)||"{}")}catch{return {}}}
 function App(){
- const saved=load();
+ const saved=read();
  const [messages,setMessages]=useState<Msg[]>(saved.messages||[]);
  const [memory,setMemory]=useState(saved.memory||"");
+ const [avatarId,setAvatarId]=useState(saved.avatarId||DEFAULT_ID);
+ const [portrait,setPortrait]=useState(saved.portrait||"");
+ const [avatarStatus,setAvatarStatus]=useState(saved.avatarStatus||"ready");
+ const [name,setName]=useState(saved.name||"RED");
+ const [motion,setMotion]=useState("Natural subtle idle movement, relaxed expression, occasional gentle head movement.");
  const [text,setText]=useState("");
  const [inCall,setInCall]=useState(false);
- const [showSettings,setShowSettings]=useState(false);
- const [showMemory,setShowMemory]=useState(false);
- const [customAvatar,setCustomAvatar]=useState(saved.customAvatar||"");
+ const [modal,setModal]=useState<"memory"|"avatar"|"settings"|null>(null);
+ const [busy,setBusy]=useState(false);
+ const [notice,setNotice]=useState("");
  const client=useMemo(()=>createProxyClient({proxyUrl:"/api/realtime-avatar"}),[]);
- useEffect(()=>localStorage.setItem(STORE,JSON.stringify({messages,memory,customAvatar})),[messages,memory,customAvatar]);
+ useEffect(()=>localStorage.setItem(STORE,JSON.stringify({messages,memory,avatarId,portrait,avatarStatus,name})),[messages,memory,avatarId,portrait,avatarStatus,name]);
+ useEffect(()=>{if(!avatarId.startsWith("ava_"))return;let stop=false;const tick=async()=>{try{const r=await fetch("/api/avatar/status?id="+encodeURIComponent(avatarId));if(!r.ok)return;const d=await r.json();if(!stop)setAvatarStatus(d.status||"unknown")}catch{}};tick();const id=setInterval(tick,8000);return()=>{stop=true;clearInterval(id)}},[avatarId]);
  const add=(role:Msg["role"],content:string)=>setMessages(m=>[...m,{role,content,ts:Date.now()}]);
- const send=async()=>{const v=text.trim();if(!v)return;setText("");add("user",v);try{const r=await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({message:v,messages,memory})});if(!r.ok)throw 0;const d=await r.json();add("assistant",d.reply||"")}catch{add("assistant","Text chat is not connected yet. Start a live avatar call for the realtime conversation.")}};
- const upload=(e:React.ChangeEvent<HTMLInputElement>)=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=()=>setCustomAvatar(String(r.result));r.readAsDataURL(f)};
+ const send=async()=>{const v=text.trim();if(!v)return;setText("");add("user",v);try{const r=await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({message:v,messages,memory})});if(!r.ok)throw 0;const d=await r.json();add("assistant",d.reply||"")}catch{add("assistant","Use Start live conversation for the realtime voice/avatar experience. The text adapter can be connected without changing the UI.")}};
+ const choosePortrait=(e:React.ChangeEvent<HTMLInputElement>)=>{const f=e.target.files?.[0];if(!f)return;if(f.size>8*1024*1024){setNotice("Image must be 8 MB or smaller.");return}const r=new FileReader();r.onload=()=>setPortrait(String(r.result));r.readAsDataURL(f)};
+ const createAvatar=async()=>{const input=document.getElementById("avatarFile") as HTMLInputElement|null;const file=input?.files?.[0];if(!file){setNotice("Choose a portrait first.");return}setBusy(true);setNotice("Creating your live avatar…");try{const fd=new FormData();fd.append("file",file);fd.append("name",name);fd.append("motionPrompt",motion);const r=await fetch("/api/avatar/create",{method:"POST",body:fd});const d=await r.json();if(!r.ok)throw new Error(d.error||"Creation failed");setAvatarId(d.id);setAvatarStatus(d.status||"preprocessing");setNotice(d.status==="ready"?"Avatar ready.":"Avatar is rendering. RED LIVE will keep checking until it is ready.");}catch(e){setNotice(e instanceof Error?e.message:"Avatar creation failed.")}finally{setBusy(false)}};
+ const isDefault=avatarId===DEFAULT_ID;
  return <div className="app">
-  <header><div><div className="logo">RED <b>LIVE</b></div><div className="tag">Live AI Chats Unleashed</div></div><button className="ghost" onClick={()=>setShowSettings(true)}>⚙</button></header>
-  <section className="hero">
-   <div className="avatarWrap">
-    {inCall?<AvatarCall client={client} avatarId={AVATAR} poster={POSTER} idleVideoUrl={IDLE} style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"28px"}} onEnded={()=>setInCall(false)}>
-      {(call)=><div className="callOverlay"><span>{call.status==="waiting"?`In line: ${call.queuePosition}`:call.status==="live"?"LIVE":call.status}</span><button onClick={call.end}>End call</button></div>}
-    </AvatarCall>:customAvatar?<img src={customAvatar} className="avatarImage"/>:<video className="idle" src={IDLE} poster={POSTER} autoPlay muted loop playsInline/>}
+  <header><div><div className="logo">RED <b>LIVE</b></div><div className="tag">Live AI Chats Unleashed</div></div><button className="ghost" onClick={()=>setModal("settings")}>⚙</button></header>
+  <main>
+   <section className="hero"><div className="avatarWrap">
+    {inCall?<AvatarCall client={client} avatarId={avatarId} poster={isDefault?POSTER:portrait||undefined} idleVideoUrl={isDefault?IDLE:undefined} style={{width:"100%",height:"100%"}} onEnded={()=>setInCall(false)}>
+      {(call)=><div className="callOverlay"><span>{call.status==="waiting"?"In line: "+call.queuePosition:call.status==="live"?"LIVE":call.status}</span><button onClick={call.end}>End call</button></div>}
+    </AvatarCall>:isDefault?<video className="idle" src={IDLE} poster={POSTER} autoPlay muted loop playsInline/>:<>{portrait?<img className="idle" src={portrait}/>:<div className="portraitPlaceholder"><span>RED LIVE</span><small>{avatarStatus==="ready"?"Avatar ready":"Avatar "+avatarStatus}</small></div>}</>}
    </div>
-   <div className="heroActions">{!inCall?<button className="primary" onClick={()=>setInCall(true)}>Start live conversation</button>:null}<span className="secure">Full-duplex voice • interruptible • memory-ready</span></div>
-  </section>
-  <section className="chat"><div className="chatHead"><b>Conversation</b><button onClick={()=>setShowMemory(true)}>Memory</button></div>{messages.length===0?<div className="empty">Your conversation stays on this device until you choose a connected provider.</div>:messages.map((m,i)=><div key={i} className={"msg "+m.role}><small>{m.role==="user"?"YOU":"RED"}</small><div>{m.content}</div></div>)}</section>
-  <section className="composer"><input value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Type while RED is listening…"/><button onClick={send}>Send</button></section>
-  <nav><button onClick={()=>setShowMemory(true)}>Memory</button><label>Avatar<input hidden type="file" accept="image/*" onChange={upload}/></label><button onClick={()=>setShowSettings(true)}>Tools</button></nav>
-  {showMemory&&<div className="modal"><div className="sheet"><button className="close" onClick={()=>setShowMemory(false)}>×</button><h2>RED memory</h2><p>Only memories you explicitly save here are stored locally.</p><textarea value={memory} onChange={e=>setMemory(e.target.value)} placeholder="Things RED should remember…"/><button className="primary" onClick={()=>setShowMemory(false)}>Save memory</button></div></div>}
-  {showSettings&&<div className="modal"><div className="sheet"><button className="close" onClick={()=>setShowSettings(false)}>×</button><h2>RED LIVE</h2><p>Realtime avatar: {AVATAR}</p><p>Custom avatar: {customAvatar?"loaded":"not loaded"}</p><p>Provider connection is server-side. No private API key is shipped in this app.</p><label className="upload">Choose avatar image<input hidden type="file" accept="image/*" onChange={upload}/></label></div></div>}
+   <div className="heroActions">{!inCall&&<button className="primary" disabled={avatarStatus!=="ready"} onClick={()=>setInCall(true)}>{avatarStatus==="ready"?"Start live conversation":"Avatar is "+avatarStatus}</button>}<span className="secure">Full-duplex voice • interruption • persistent local memory</span></div></section>
+   <section className="chat"><div className="chatHead"><b>Conversation</b><button onClick={()=>setModal("memory")}>Memory</button></div>{messages.length===0?<div className="empty">Start a live call or type below. Explicitly saved memory stays on this device.</div>:messages.map((m,i)=><div key={i} className={"msg "+m.role}><small>{m.role==="user"?"YOU":"RED"}</small><div>{m.content}</div></div>)}</section>
+   <section className="composer"><input value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Type to RED…"/><button onClick={send}>Send</button></section>
+   <nav><button onClick={()=>setModal("memory")}>Memory</button><button onClick={()=>setModal("avatar")}>Create avatar</button><button onClick={()=>setModal("settings")}>Settings</button></nav>
+  </main>
+  {modal==="memory"&&<div className="modal"><div className="sheet"><button className="close" onClick={()=>setModal(null)}>×</button><h2>RED memory</h2><p>Only what you save here is retained locally.</p><textarea value={memory} onChange={e=>setMemory(e.target.value)} placeholder="Things RED should remember…"/><button className="primary" onClick={()=>setModal(null)}>Save memory</button></div></div>}
+  {modal==="avatar"&&<div className="modal"><div className="sheet"><button className="close" onClick={()=>setModal(null)}>×</button><h2>Create your avatar</h2><p>Upload one clear portrait. The live-avatar provider generates the idle and motion assets server-side.</p><input id="avatarFile" type="file" accept="image/png,image/jpeg,image/webp" onChange={choosePortrait}/><input value={name} onChange={e=>setName(e.target.value)} placeholder="Avatar name"/><textarea value={motion} onChange={e=>setMotion(e.target.value)}/><button className="primary" disabled={busy} onClick={createAvatar}>{busy?"Creating…":"Create live avatar"}</button>{notice&&<div className="notice">{notice}</div>}</div></div>}
+  {modal==="settings"&&<div className="modal"><div className="sheet"><button className="close" onClick={()=>setModal(null)}>×</button><h2>RED LIVE</h2><p>Avatar: <b>{avatarId}</b></p><p>Status: <b>{avatarStatus}</b></p><p>Private provider credentials never belong in this browser build.</p><button onClick={()=>setModal("avatar")}>Create/change avatar</button></div></div>}
  </div>
 }
 createRoot(document.getElementById("root")!).render(<App/>);
