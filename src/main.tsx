@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import {
   AvatarCall,
   createProxyClient,
+  useAvatarCamera,
   type AvatarConnectionDetails,
 } from "realtime-avatar/react";
 import "./style.css";
@@ -23,6 +24,26 @@ const read = () => {
     return {};
   }
 };
+
+function CameraControl({ active }: { active: boolean }) {
+  const camera = useAvatarCamera({ allowed: true, active });
+  return (
+    <button
+      className="cameraButton"
+      disabled={!camera.available}
+      aria-pressed={camera.enabled}
+      onClick={() => void camera.toggle()}
+    >
+      {camera.pending
+        ? "Cancel camera request"
+        : camera.enabled
+          ? "Stop camera"
+          : camera.error
+            ? "Camera unavailable"
+            : "Share camera"}
+    </button>
+  );
+}
 
 function App() {
   const saved = read();
@@ -236,6 +257,7 @@ function App() {
               >
                 {(call) => (
                   <div className="callOverlay">
+                    <div className="callTools"><CameraControl active={inCall} /></div>
                     <div>
                       <strong>
                         {call.status === "waiting"
