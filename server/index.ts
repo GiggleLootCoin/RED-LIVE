@@ -33,8 +33,9 @@ app.all("/api/realtime-avatar/*", realtimeAvatarHono({
           maxSeconds: 120,
           camera: true,
           listen: true,
-          // Use the generated portrait loop + motion library for the most
-          // reliable call path. Generative video is intentionally not required.
+          // Use the realtime generative renderer so the character is
+          // visibly animated while speaking.
+          video: { mode: "generative" },
           voice: {
             speed: 1.0,
             emotion: "warm, expressive, natural, conversational, emotionally present",
@@ -176,7 +177,6 @@ app.post("/api/avatar/create-from-url", async c => {
       headers: { ...headers(), "content-type": "application/json" },
       body: JSON.stringify({
         displayName,
-        sourceKind: "image",
         sourceAssetId: asset.id,
         motionPrompt,
         voice: { auto_description: "Natural, warm, expressive conversational voice with relaxed pacing and clear speech." }
