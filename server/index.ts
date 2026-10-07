@@ -220,10 +220,28 @@ app.post("/api/chat", async c => {
   }
 });
 
+app.get("/api/web-search", async c => {
+  const q = (c.req.query("q") || "").trim().slice(0, 240);
+  if (!q) return c.json({ error: "Search query is required." }, 400);
+  const apiKey = process.env.TAVILY_API_KEY;
+  if (!apiKey) return c.json({ error: "Web search is not configured. Add TAVILY_API_KEY in Render." }, 503);
+  try {
+    const r = await fetch("https://api.tavily.com/search", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ api_key: apiKey, query: q, search_depth: "basic", max_results: 6, include_answer: false }),
+    });
+    const d = await r.json();
+    if (!r.ok) return c.json({ error: d?.detail || "Web search failed." }, r.status as any);
+    return c.json({ results: Array.isArray(d.results) ? d.results.map((x:any) => ({ title:String(x.title||""), url:String(x.url||""), snippet:String(x.content||"").slice(0,500) })) : [] });
+  } catch { return c.json({ error: "Web search connection failed." }, 502); }
+});
+
 app.get("/api/health", c =>
   c.json({
     ok: true,
     avatarProvider: key() ? "configured" : "missing",
+    webSearch: process.env.TAVILY_API_KEY ? "configured" : "missing",
+    publicUrl: process.env.RENDER_EXTERNAL_URL || null,
     textModel: process.env.LLM_MODEL || "live-avatar",
   })
 );
