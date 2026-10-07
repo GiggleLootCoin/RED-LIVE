@@ -391,6 +391,7 @@ function App() {
             </span>
           </div>
         </section>
+        </section>
 
         <section className="characters">
           <div className="chatHead">
