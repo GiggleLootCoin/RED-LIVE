@@ -26,16 +26,7 @@ app.all("/api/realtime-avatar/*", realtimeAvatarHono({
       ? undefined
       : new Response("Not found", { status: 404 }),
   session: async ({ request, avatarId }) =>
-    [
-      "seed-rin-ashfall",
-      "seed-vesper-nyx",
-      "seed-professor-thistle",
-      "seed-valko",
-      "seed-remy",
-      "seed-koko",
-      "seed-luciano-draven",
-      "seed-mark-zuckerberg",
-    ].includes(avatarId) || avatarId.startsWith("ava_")
+    avatarId === "seed-rin-ashfall" || avatarId.startsWith("seed-") || avatarId.startsWith("ava_")
       ? {
           instructions: persona,
           context: cookieContext(request),
@@ -86,22 +77,14 @@ app.post("/api/memory", async c => {
 });
 
 app.get("/api/avatars", async c => {
-  const fallback = [
-    ["seed-rin-ashfall", "Rin Ashfall", "rin-ashfall"],
-    ["seed-vesper-nyx", "Vesper Nyx", "vesper-nyx"],
-    ["seed-professor-thistle", "Professor Thistle", "professor-thistle"],
-    ["seed-valko", "Valko", "valko"],
-    ["seed-remy", "Remy", "remy"],
-    ["seed-koko", "Koko", "koko"],
-    ["seed-luciano-draven", "Luciano Draven", "luciano-draven"],
-    ["seed-mark-zuckerberg", "Mark Zuckerberg", "mark-zuckerberg"],
-  ].map(([id, name, slug]) => ({
-    id,
-    name,
+  const fallback = [{
+    id: "seed-rin-ashfall",
+    name: "Rin Ashfall",
     status: "ready",
-    poster: `https://realtimeavatar.ai/api/assets/public/characters/${slug}/portrait.png`,
-    idle: `https://realtimeavatar.ai/api/assets/public/characters/${slug}/idle-10s.mp4`,
-  }));
+    poster: "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/portrait.png",
+    idle: "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4",
+  }];
+
   if (!key()) return c.json({ avatars: fallback });
 
   try {
@@ -109,14 +92,18 @@ app.get("/api/avatars", async c => {
     if (!r.ok) return c.json({ avatars: fallback });
     const payload = await r.json();
     const rows = Array.isArray(payload?.data) ? payload.data : [];
-    const custom = rows
-      .filter((a: any) => a?.id && a.id !== "seed-rin-ashfall")
+    const actual = rows
+      .filter((a: any) => a?.id && (String(a.id).startsWith("ava_") || String(a.id).startsWith("seed-")))
       .map((a: any) => ({
         id: String(a.id),
-        name: String(a.displayName || "AI Avatar"),
+        name: String(a.displayName || a.name || "Live Avatar"),
         status: String(a.status || "unknown"),
+        poster: a.posterUrl || a.poster_url || a.anchor?.url || null,
+        idle: a.idleVideoUrl || a.idle_video_url || a.video?.url || null,
       }));
-    return c.json({ avatars: [...fallback, ...custom] });
+    const map = new Map<string, any>();
+    for (const a of [...fallback, ...actual]) map.set(a.id, a);
+    return c.json({ avatars: [...map.values()] });
   } catch {
     return c.json({ avatars: fallback });
   }
