@@ -30,7 +30,7 @@ app.all("/api/realtime-avatar/*", realtimeAvatarHono({
       ? {
           instructions: persona,
           context: cookieContext(request),
-          maxSeconds: 120,
+          maxSeconds: 180,
           camera: true,
           listen: true,
           clientTools: true,
@@ -178,7 +178,7 @@ app.post("/api/avatar/create-from-url", async c => {
         displayName,
         sourceAssetId: asset.id,
         motionPrompt,
-        voice: { auto_description: "Natural, warm, expressive conversational voice with relaxed pacing and clear speech." }
+        voice: { auto_description: "Natural adult human voice, warm and emotionally expressive, conversational rather than announcer-like, realistic pacing, subtle breaths, natural pauses, varied intonation, no cartoon affect, no exaggerated character voice." }
       })
     });
     const avatar = await created.json().catch(() => ({}));
@@ -245,7 +245,7 @@ app.post("/api/avatar/create", async c => {
         motionPrompt,
         voice: {
           auto_description:
-            "Warm, natural, conversational voice; clear and friendly.",
+            "Natural adult human voice, warm and emotionally expressive, conversational rather than announcer-like, realistic pacing, subtle breaths, natural pauses, varied intonation, no cartoon affect, no exaggerated character voice.",
         },
       }),
     });
