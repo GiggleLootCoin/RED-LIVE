@@ -16,6 +16,16 @@ const RIN: Avatar = {
   idle: "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4",
 };
 
+const PUBLIC_AVATARS: Avatar[] = [
+  { id: "seed-rin-ashfall", name: "Rin Ashfall", status: "ready", poster: "https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/portrait.png" },
+  { id: "seed-vesper-nyx", name: "Vesper Nyx", status: "ready", poster: "https://realtimeavatar.ai/api/assets/public/characters/vesper-nyx/portrait.png" },
+  { id: "seed-professor-thistle", name: "Professor Thistle", status: "ready", poster: "https://realtimeavatar.ai/api/assets/public/characters/professor-thistle/portrait.png" },
+  { id: "seed-valko", name: "Valko", status: "ready", poster: "https://realtimeavatar.ai/api/assets/public/characters/valko/portrait.png" },
+  { id: "seed-remy", name: "Remy", status: "ready", poster: "https://realtimeavatar.ai/api/assets/public/characters/remy/portrait.png" },
+  { id: "seed-koko", name: "Koko", status: "ready", poster: "https://realtimeavatar.ai/api/assets/public/characters/koko/portrait.png" },
+  { id: "seed-luciano-draven", name: "Luciano Draven", status: "ready", poster: "https://realtimeavatar.ai/api/assets/public/characters/luciano-draven/portrait.png" },
+];
+
 const read = () => {
   try { return JSON.parse(localStorage.getItem(STORE) || "{}"); } catch { return {}; }
 };
@@ -54,7 +64,7 @@ function App() {
   const [avatarId, setAvatarId] = useState(saved.avatarId || DEFAULT_ID);
   const [avatarStatus, setAvatarStatus] = useState(saved.avatarStatus || "ready");
   const [selected, setSelected] = useState<Avatar>(saved.avatar || RIN);
-  const [avatars, setAvatars] = useState<Avatar[]>([RIN]);
+  const [avatars, setAvatars] = useState<Avatar[]>(PUBLIC_AVATARS);
   const [inCall, setInCall] = useState(false);
   const [callStatus, setCallStatus] = useState("");
   const [callError, setCallError] = useState("");
@@ -80,7 +90,12 @@ function App() {
     fetch("/api/avatars").then(r => r.json()).then(d => {
       if (Array.isArray(d.avatars)) {
         const clean = d.avatars.filter((a: Avatar) => !/mark zuckerberg/i.test(a.name));
-        if (clean.length) setAvatars(clean);
+        if (clean.length) {
+        const byId = new Map<string, Avatar>();
+        for (const a of PUBLIC_AVATARS) byId.set(a.id, a);
+        for (const a of clean) byId.set(a.id, a);
+        setAvatars([...byId.values()]);
+      }
       }
     }).catch(() => {});
   }, []);
