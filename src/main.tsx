@@ -220,11 +220,12 @@ function App() {
       </section>
 
       <section className="vault">
-        <div className="sectionHead"><div><div className="eyebrow">CHARACTER VAULT</div><h2>Choose a character.</h2><p>These are provider-backed live characters or avatars you create yourself. No fake thumbnail faces.</p></div><button className="createButton" onClick={() => setModal("create")}>＋ CREATE YOUR OWN</button></div>
+        <div className="sectionHead"><div><div className="eyebrow">CHARACTER VAULT</div><h2>Choose your AI human.</h2><p>Real live characters only. Every selectable character uses the same full-duplex voice, animated video, memory, camera and live-web tool stack.</p></div><button className="createButton" onClick={() => setModal("create")}>＋ CREATE YOUR OWN</button></div>
+        <div className="vaultMeta"><span>{avatars.length} live characters available</span><span>● REAL-TIME VIDEO</span><span>● WEB ENABLED</span></div>
         <div className="avatarGrid">
           {avatars.map(a => <button key={a.id} className={"avatarCard " + (a.id === avatarId ? "selected" : "")} onClick={() => selectAvatar(a)}>
             <div className="cardMedia">{a.id === DEFAULT_ID && a.idle ? <video src={a.idle} poster={a.poster || undefined} muted autoPlay loop playsInline/> : a.poster ? <img src={a.poster} alt={a.name}/> : <div className="generatedCard"><span>{a.status === "ready" ? "LIVE" : a.status.toUpperCase()}</span></div>}</div>
-            <div className="cardInfo"><b>{a.name}</b><small>{a.id.startsWith("ava_") ? "YOUR AVATAR" : "PROVIDER CHARACTER"}</small><span className={a.status === "ready" ? "ready" : ""}>{a.status === "ready" ? "READY" : a.status}</span></div>
+            <div className="cardInfo"><b>{a.name}</b><small>{a.id.startsWith("ava_") ? "YOUR AI HUMAN" : "STOCK AI HUMAN"}</small><span className={a.status === "ready" ? "ready" : ""}>{a.status === "ready" ? "LIVE READY" : a.status}</span></div>
           </button>)}
           <button className="avatarCard createTile" onClick={() => setModal("create")}><div className="createGlyph">＋</div><b>Create your own</b><small>Upload a portrait → animated live character</small></button>
         </div>
