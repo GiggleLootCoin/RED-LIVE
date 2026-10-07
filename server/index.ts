@@ -287,28 +287,6 @@ app.get("/api/web-search", async c => {
   } catch { return c.json({ error: "Web search connection failed." }, 502); }
 });
 
-app.get("/api/avatars", async c => {
-  if (!key()) return c.json({ error: "Realtime Avatar server key is not configured." }, 503);
-  try {
-    const r = await fetch(base + "/avatars", { headers: headers() });
-    const d = await r.json();
-    if (!r.ok) return c.json({ error: d?.detail || "Could not load avatars." }, r.status as any);
-    return c.json({
-      avatars: Array.isArray(d?.data)
-        ? d.data.map((a:any) => ({
-            id: String(a.id || ""),
-            name: String(a.displayName || a.name || "Avatar"),
-            status: String(a.status || "unknown"),
-            poster: a.posterUrl || a.poster_url || a.anchor?.url || null,
-            idle: a.idleVideoUrl || a.idle_video_url || a.video?.url || null,
-          }))
-        : [],
-    });
-  } catch {
-    return c.json({ error: "Avatar list connection failed." }, 502);
-  }
-});
-
 app.get("/api/provider-check", async c => {
   if (!key()) return c.json({ ok: false, avatar: "missing_key" }, 503);
   try {
