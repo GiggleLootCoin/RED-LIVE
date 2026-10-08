@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
 import { realtimeAvatarHono } from "realtime-avatar/hono";
 
 const app = new Hono();
@@ -22,6 +23,51 @@ app.all("/api/realtime-avatar/*",realtimeAvatarHono({
 
 app.get("/api/live-diagnostic",async c=>{if(!key())return c.json({ok:false,error:"REALTIME_AVATAR_API_KEY is not configured on the server."},503);try{const[cr,ar,capr]=await Promise.all([fetch(base+"/credits/balance",{headers:headers()}),fetch(base+"/avatars",{headers:headers()}),fetch(base+"/realtime/livekit/capacity",{headers:headers()})]);const credits=await cr.json().catch(()=>null);const capacity=await capr.json().catch(()=>null);const balanceCreditMicros=creditMicros(credits,"balance");const reservedCreditMicros=creditMicros(credits,"reserved");const availableSeconds=Math.max(0,Math.floor(Math.max(0,balanceCreditMicros-reservedCreditMicros)/1000000));const payload=await ar.json().catch(()=>null);const rows=Array.isArray(payload?.data)?payload.data:[];const allowed=rows.filter((a:any)=>/^ava_[A-Za-z0-9_-]+$/.test(String(a?.id))&&!isPublicFigureLabel(String(a?.displayName||a?.name||"")));const ready=allowed.filter((a:any)=>a.status==="ready");return c.json({ok:cr.ok&&ar.ok,creditsStatus:cr.status,avatarStatus:ar.status,realtimeStatus:capr.status,realtimeScope:capr.ok?"realtime:write confirmed":"Realtime capacity check unavailable; this does not block calls.",capacity,avatarReady:true,credits:{balanceCreditMicros,reservedCreditMicros,availableSeconds,providerKeys:credits&&typeof credits==="object"?Object.keys(credits):[],raw:credits},avatars:[{id:"seed-rin-ashfall",name:"Rin Ashfall",status:"ready",idleVideoStatus:"ready",error:null},...allowed.map((a:any)=>({id:a.id,name:a.displayName||a.name||"Live Avatar",status:a.status,idleVideoStatus:a.idleVideoStatus,error:a.error??null}))],errors:[!cr.ok?`Credits endpoint HTTP ${cr.status}`:"",!ar.ok?`Avatar list endpoint HTTP ${ar.status}`:"",ar.ok&&ready.length===0?"No custom READY platform avatars are available; the public Rin example is available.":""].filter(Boolean)})}catch(e){return c.json({ok:false,error:e instanceof Error?e.message:"Provider check failed"},502)}});
 
+
+
+async function llmChat(message:string,messages:any[],memory:string){
+ const url=(process.env.LLM_BASE_URL||"").replace(/\/$/,"");
+ const apiKey=process.env.LLM_API_KEY||"";
+ const model=process.env.LLM_MODEL||"";
+ if(!url||!apiKey||!model) throw new Error("Text AI is not configured. Set LLM_BASE_URL, LLM_API_KEY and LLM_MODEL.");
+ const context=[
+  {role:"system",content:persona+(memory?("\nUser memory:\n"+memory):"")},
+  ...messages.slice(-16).map((m:any)=>({role:m.role==="user"?"user":"assistant",content:String(m.content||"").slice(0,4000)})),
+  {role:"user",content:message}
+ ];
+ const response=await fetch(url+"/chat/completions",{method:"POST",headers:{"content-type":"application/json",Authorization:"Bearer "+apiKey},body:JSON.stringify({model,messages:context,temperature:0.7,max_tokens:700})});
+ const data=await response.json().catch(()=>null);
+ if(!response.ok) throw new Error(data?.error?.message||data?.error||("LLM provider HTTP "+response.status));
+ const reply=data?.choices?.[0]?.message?.content;
+ if(typeof reply!=="string"||!reply.trim()) throw new Error("The text AI returned no response.");
+ return reply.trim();
+}
+
+app.post("/api/chat",async c=>{
+ try{
+  const body=await c.req.json();
+  const message=typeof body.message==="string"?body.message.trim().slice(0,4000):"";
+  if(!message)return c.json({error:"Message is required."},400);
+  const messages=Array.isArray(body.messages)?body.messages.slice(-16):[];
+  const memory=typeof body.memory==="string"?body.memory.slice(0,3200):"";
+  const reply=await llmChat(message,messages,memory);
+  return c.json({ok:true,reply});
+ }catch(e){return c.json({ok:false,error:e instanceof Error?e.message:"Text AI failed."},502)}
+});
+
+app.get("/api/web-search",async c=>{
+ const query=(c.req.query("q")||"").trim().slice(0,500);
+ const tavily=process.env.TAVILY_API_KEY||"";
+ if(!query)return c.json({error:"Search query is required."},400);
+ if(!tavily)return c.json({error:"Web search is not configured. Set TAVILY_API_KEY."},503);
+ try{
+  const r=await fetch("https://api.tavily.com/search",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({api_key:tavily,query,max_results:6,search_depth:"advanced",include_answer:true})});
+  const d=await r.json().catch(()=>null);
+  if(!r.ok)return c.json({error:d?.detail||d?.error||("Search provider HTTP "+r.status)},r.status as any);
+  return c.json({ok:true,answer:d?.answer||"",results:Array.isArray(d?.results)?d.results.map((x:any)=>({title:x.title,url:x.url,content:x.content,score:x.score})):[]});
+ }catch(e){return c.json({error:e instanceof Error?e.message:"Web search failed."},502)}
+});
+
 app.post("/api/memory",async c=>{try{const body=await c.req.json();const messages=Array.isArray(body.messages)?body.messages:[];const memory=typeof body.memory==="string"?body.memory.slice(0,3200):"";const context=[...(memory?[{role:"system",content:"User-saved memory:\n"+memory}]:[]),...messages.slice(-12).map((m:any)=>({role:m.role==="user"?"user":"assistant",content:String(m.content??"").slice(0,900)}))];const encoded=encodeURIComponent(JSON.stringify(context));if(encoded.length>6500)return c.json({error:"Memory is too large."},413);return new Response(JSON.stringify({ok:true}),{headers:{"content-type":"application/json","set-cookie":`red_memory=${encoded}; Path=/; Max-Age=31536000; Secure; SameSite=Lax`}})}catch{return c.json({error:"Invalid memory payload."},400)}});
 
 app.get("/api/avatars",async c=>{if(!key())return c.json({avatars:[],error:"Realtime Avatar server key is not configured."},503);try{const r=await fetch(base+"/avatars",{headers:headers()});if(!r.ok)return c.json({avatars:[],error:`Avatar provider returned HTTP ${r.status}.`},r.status as any);const payload=await r.json();const rows=Array.isArray(payload?.data)?payload.data:[];const example={id:"seed-rin-ashfall",name:"Rin Ashfall",status:"ready",poster:"https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/portrait.png",idle:"https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4"};const custom=rows.filter((a:any)=>/^ava_[A-Za-z0-9_-]+$/.test(String(a?.id))&&!isPublicFigureLabel(String(a?.displayName||a?.name||""))).map((a:any)=>({id:String(a.id),name:String(a.displayName||a.name||"Live Avatar"),status:String(a.status||"unknown"),poster:a.posterUrl||a.poster_url||a.anchor?.url||null,idle:a.idleVideoUrl||a.idle_video_url||a.video?.url||null}));return c.json({avatars:[...new Map([example,...custom].map((x:any)=>[x.id,x])).values()]})}catch{return c.json({avatars:[],error:"Avatar provider could not be reached."},502)}});
@@ -32,5 +78,7 @@ async function createAvatar(c:any,file:File,name:string,motion:string,policy:boo
 app.post("/api/avatar/create",async c=>{try{const form=await c.req.formData();const file=form.get("file");if(!(file instanceof File))return c.json({error:"Portrait image is required."},400);const name=String(form.get("name")||"RED Avatar").slice(0,160);const motion=String(form.get("motionPrompt")||"Natural breathing, blinking, attentive eye contact, subtle head and shoulder movement, expressive listening and restrained conversational gestures.").slice(0,1200);const policy=String(form.get("policyAccepted")||"")==="true";return await createAvatar(c,file,name,motion,policy)}catch(e){return c.json({error:e instanceof Error?e.message:"Avatar creation failed."},500)}});
 app.post("/api/avatar/create-from-url",async c=>{try{const body=await c.req.json();const imageUrl=typeof body.imageUrl==="string"?body.imageUrl:"";const name=typeof body.displayName==="string"?body.displayName.slice(0,80):"RED LIVE Avatar";const motion=typeof body.motionPrompt==="string"?body.motionPrompt.slice(0,1000):"Natural breathing, blinking, attentive eye contact, subtle head and shoulder movement and restrained conversational gestures.";if(!/^https:\/\//i.test(imageUrl))return c.json({error:"Secure image URL required."},400);const source=await fetch(imageUrl);if(!source.ok)return c.json({error:"Avatar portrait could not be loaded."},502);const type=(source.headers.get("content-type")||"").split(";")[0].toLowerCase();const blob=await source.blob();const file=new File([blob],name.replace(/[^a-z0-9]+/gi,"-")+"."+(type==="image/png"?"png":type==="image/webp"?"webp":"jpg"),{type});return await createAvatar(c,file,name,motion,body.policyAccepted===true)}catch(e){return c.json({error:e instanceof Error?e.message:"Avatar creation failed."},500)}});
 
-app.get("/health",c=>c.json({ok:true,service:"RED LIVE",build:"live-credit-diagnostics-v2",liveMode:"voice-fallback",sdk:"realtime-avatar@0.27.0"}));
+app.get("/api/health",c=>c.json({ok:true,service:"RED LIVE",build:"live-full-stack-v1",liveMode:"avatar-with-voice-fallback",sdk:"realtime-avatar@0.27.0"}));
+app.get("/health",c=>c.json({ok:true,service:"RED LIVE",build:"live-full-stack-v1",liveMode:"avatar-with-voice-fallback",sdk:"realtime-avatar@0.27.0"}));
+app.use("/*",serveStatic({root:"./dist"}));
 const port=Number(process.env.PORT||3000);serve({fetch:app.fetch,port});
