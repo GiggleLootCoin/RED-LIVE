@@ -15,7 +15,7 @@ async function getProviderAvatar(id:string){if(id==="seed-rin-ashfall")return{id
 
 app.all("/api/realtime-avatar/*",realtimeAvatarHono({
  apiKey:key,
- authorize:({operation})=>operation==="connect"||operation==="end"?undefined:new Response("Not found",{status:404}),
+ authorize:({operation})=>operation==="connect"||operation==="end"||operation==="avatars"||operation==="credits"?undefined:new Response("Not found",{status:404}),
  session:async({request,avatarId})=>{if(!isAvatarIdAllowed(avatarId))return new Response("Avatar not allowed",{status:403});const avatar=await getProviderAvatar(avatarId);if(!avatar||!isAvatarSafeForREDLive(avatar))return new Response("Avatar is not ready or is not permitted in RED LIVE.",{status:403});return{instructions:persona,context:cookieContext(request),maxSeconds:180,camera:true,listen:true,clientTools:true}}
 }));
 
@@ -31,5 +31,5 @@ async function createAvatar(c:any,file:File,name:string,motion:string,policy:boo
 app.post("/api/avatar/create",async c=>{try{const form=await c.req.formData();const file=form.get("file");if(!(file instanceof File))return c.json({error:"Portrait image is required."},400);const name=String(form.get("name")||"RED Avatar").slice(0,160);const motion=String(form.get("motionPrompt")||"Natural breathing, blinking, attentive eye contact, subtle head and shoulder movement, expressive listening and restrained conversational gestures.").slice(0,1200);const policy=String(form.get("policyAccepted")||"")==="true";return await createAvatar(c,file,name,motion,policy)}catch(e){return c.json({error:e instanceof Error?e.message:"Avatar creation failed."},500)}});
 app.post("/api/avatar/create-from-url",async c=>{try{const body=await c.req.json();const imageUrl=typeof body.imageUrl==="string"?body.imageUrl:"";const name=typeof body.displayName==="string"?body.displayName.slice(0,80):"RED LIVE Avatar";const motion=typeof body.motionPrompt==="string"?body.motionPrompt.slice(0,1000):"Natural breathing, blinking, attentive eye contact, subtle head and shoulder movement and restrained conversational gestures.";if(!/^https:\/\//i.test(imageUrl))return c.json({error:"Secure image URL required."},400);const source=await fetch(imageUrl);if(!source.ok)return c.json({error:"Avatar portrait could not be loaded."},502);const type=(source.headers.get("content-type")||"").split(";")[0].toLowerCase();const blob=await source.blob();const file=new File([blob],name.replace(/[^a-z0-9]+/gi,"-")+"."+(type==="image/png"?"png":type==="image/webp"?"webp":"jpg"),{type});return await createAvatar(c,file,name,motion,body.policyAccepted===true)}catch(e){return c.json({error:e instanceof Error?e.message:"Avatar creation failed."},500)}});
 
-app.get("/health",c=>c.json({ok:true,service:"RED LIVE"}));
+app.get("/health",c=>c.json({ok:true,service:"RED LIVE",build:"e55549a",liveMode:"voice-fallback",sdk:"realtime-avatar@0.27.0"}));
 const port=Number(process.env.PORT||3000);serve({fetch:app.fetch,port});
