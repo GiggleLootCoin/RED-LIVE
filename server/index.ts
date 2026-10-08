@@ -32,9 +32,7 @@ async function llmChat(message:string,messages:any[],memory:string){
  const model=process.env.LLM_MODEL||"";
  if(!url||!apiKey||!model) throw new Error("Text AI is not configured. Set LLM_BASE_URL, LLM_API_KEY and LLM_MODEL.");
  const context=[
-  {role:"system",content:persona+(memory?("
-User memory:
-"+memory):"")},
+  {role:"system",content:persona+(memory?("\nUser memory:\n"+memory):"")},
   ...messages.slice(-16).map((m:any)=>({role:m.role==="user"?"user":"assistant",content:String(m.content||"").slice(0,4000)})),
   {role:"user",content:message}
  ];
@@ -71,8 +69,7 @@ app.get("/api/web-search",async c=>{
  }catch(e){return c.json({error:e instanceof Error?e.message:"Web search failed."},502)}
 });
 
-app.post("/api/memory",async c=>{try{const body=await c.req.json();const messages=Array.isArray(body.messages)?body.messages:[];const memory=typeof body.memory==="string"?body.memory.slice(0,3200):"";const context=[...(memory?[{role:"system",content:"User-saved memory:
-"+memory}]:[]),...messages.slice(-12).map((m:any)=>({role:m.role==="user"?"user":"assistant",content:String(m.content??"").slice(0,900)}))];const encoded=encodeURIComponent(JSON.stringify(context));if(encoded.length>6500)return c.json({error:"Memory is too large."},413);return new Response(JSON.stringify({ok:true}),{headers:{"content-type":"application/json","set-cookie":`red_memory=${encoded}; Path=/; Max-Age=31536000; Secure; SameSite=Lax`}})}catch{return c.json({error:"Invalid memory payload."},400)}});
+app.post("/api/memory",async c=>{try{const body=await c.req.json();const messages=Array.isArray(body.messages)?body.messages:[];const memory=typeof body.memory==="string"?body.memory.slice(0,3200):"";const context=[...(memory?[{role:"system",content:"User-saved memory:\n"+memory}]:[]),...messages.slice(-12).map((m:any)=>({role:m.role==="user"?"user":"assistant",content:String(m.content??"").slice(0,900)}))];const encoded=encodeURIComponent(JSON.stringify(context));if(encoded.length>6500)return c.json({error:"Memory is too large."},413);return new Response(JSON.stringify({ok:true}),{headers:{"content-type":"application/json","set-cookie":`red_memory=${encoded}; Path=/; Max-Age=31536000; Secure; SameSite=Lax`}})}catch{return c.json({error:"Invalid memory payload."},400)}});
 
 app.get("/api/avatars",async c=>{if(!key())return c.json({avatars:[],error:"Realtime Avatar server key is not configured."},503);try{const r=await fetch(base+"/avatars",{headers:headers()});if(!r.ok)return c.json({avatars:[],error:`Avatar provider returned HTTP ${r.status}.`},r.status as any);const payload=await r.json();const rows=Array.isArray(payload?.data)?payload.data:[];const example={id:"seed-rin-ashfall",name:"Rin Ashfall",status:"ready",poster:"https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/portrait.png",idle:"https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4"};const custom=rows.filter((a:any)=>/^ava_[A-Za-z0-9_-]+$/.test(String(a?.id))&&!isPublicFigureLabel(String(a?.displayName||a?.name||""))).map((a:any)=>({id:String(a.id),name:String(a.displayName||a.name||"Live Avatar"),status:String(a.status||"unknown"),poster:a.posterUrl||a.poster_url||a.anchor?.url||null,idle:a.idleVideoUrl||a.idle_video_url||a.video?.url||null}));return c.json({avatars:[...new Map([example,...custom].map((x:any)=>[x.id,x])).values()]})}catch{return c.json({avatars:[],error:"Avatar provider could not be reached."},502)}});
 
