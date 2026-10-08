@@ -6,8 +6,6 @@ import { extname, join } from "node:path";
 
 const app = new Hono();
 const key = () => process.env.REALTIME_AVATAR_API_KEY ?? "";
-const fishVoiceId = () => process.env.RED_LIVE_FISH_VOICE_ID?.trim() || "";
-const sessionVoice = () => fishVoiceId() ? { provider: "fish", voice_id: fishVoiceId(), speed: 0.96, emotion: "calm", language: "en-GB" } : undefined;
 const base = "https://realtimeavatar.ai/api/v1";
 const headers = () => ({ Authorization: "Bearer " + key() });
 const persona = "You are RED LIVE, a highly natural adult conversational AI companion. Speak like a real adult person: grounded, warm, calm, slightly imperfect and spontaneous. Use natural contractions, varied sentence length, realistic pauses, subtle emotional inflection and understated reactions. Avoid any cartoon, anime, childlike, mascot, announcer, presenter, radio, call-centre, sing-song, overly cheerful or theatrical delivery. Do not use exaggerated character voices, squeaky tones, fake excitement or constant smiling energy. Keep your vocal phrasing easy to speak aloud and conversational. Do not repeat greetings or filler. Listen while the user speaks and respond directly to what they actually said. Let the user interrupt. Keep ordinary replies concise and expand when useful. Use supplied conversation context as memory. Never claim to be human.";
@@ -64,11 +62,9 @@ app.all("/api/realtime-avatar/*", realtimeAvatarHono({
           maxSeconds: 180,
           camera: true,
           listen: true,
+          // Use the avatar stored/generated voice on the critical live path.
+          // Do not inject an optional voice id here: a stale id can reject the whole session.
           clientTools: true,
-          // Use the avatar's generated idle/listening/gesture motion library.
-          // This is the stable default video path and keeps the character animated
-          // without requiring a separate generative-render capacity path.
-          ...(sessionVoice() ? { voice: sessionVoice() } : {}),
           };
         })()
       : new Response("Avatar not allowed", { status: 403 }),
@@ -77,11 +73,13 @@ app.all("/api/realtime-avatar/*", realtimeAvatarHono({
 app.get("/api/live-diagnostic", async c => {
   if (!key()) return c.json({ ok: false, error: "REALTIME_AVATAR_API_KEY is not configured on the server." }, 503);
   try {
-    const [creditsRes, avatarsRes] = await Promise.all([
+    const [creditsRes, avatarsRes, capacityRes] = await Promise.all([
       fetch(base + "/credits/balance", { headers: headers() }),
       fetch(base + "/avatars", { headers: headers() }),
+      fetch(base + "/realtime/livekit/capacity", { headers: headers() }),
     ]);
     const credits = await creditsRes.json().catch(() => null);
+    const capacity = await capacityRes.json().catch(() => null);
     const payload = await avatarsRes.json().catch(() => null);
     const rows = Array.isArray(payload?.data) ? payload.data : [];
     const allowed = rows.filter((a:any) =>
@@ -90,9 +88,12 @@ app.get("/api/live-diagnostic", async c => {
     );
     const ready = allowed.filter((a:any) => a.status === "ready");
     return c.json({
-      ok: creditsRes.ok && avatarsRes.ok,
+      ok: creditsRes.ok && avatarsRes.ok && capacityRes.ok,
       creditsStatus: creditsRes.status,
       avatarStatus: avatarsRes.status,
+      realtimeStatus: capacityRes.status,
+      realtimeScope: capacityRes.ok ? "realtime:write confirmed" : "realtime:write missing or provider rejected the capacity check",
+      capacity,
       avatarReady: true,
       credits: credits?.balance ?? credits?.available ?? credits?.credits ?? null,
       avatars: [
@@ -105,6 +106,7 @@ app.get("/api/live-diagnostic", async c => {
       errors: [
         !creditsRes.ok ? `Credits endpoint HTTP ${creditsRes.status}` : "",
         !avatarsRes.ok ? `Avatar list endpoint HTTP ${avatarsRes.status}` : "",
+        !capacityRes.ok ? `Realtime capacity endpoint HTTP ${capacityRes.status} — live calls may be blocked by API key scope or provider state.` : "",
         avatarsRes.ok && ready.length === 0 ? "No custom READY platform avatars are available; the public Rin example is available." : ""
       ].filter(Boolean)
     });
