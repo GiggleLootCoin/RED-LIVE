@@ -18,7 +18,7 @@
     "livekit-client": "2.22.3",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "realtime-avatar": "0.26.0",
+    "realtime-avatar": "0.27.0",
     "@livekit/components-react": "2.9.24",
     "zod": "4.4.3"
   },
