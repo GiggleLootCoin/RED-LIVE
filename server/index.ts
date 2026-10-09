@@ -116,7 +116,7 @@ async function checkAvatarWorker(){
 }
 app.get("/api/avatar-worker/status",async c=>c.json(await checkAvatarWorker()));
 
-app.get("/api/runtime-status",async c=>{const avatarWorker=await checkAvatarWorker();return c.json({realtimeAvatarConfigured:Boolean(key()),paidLiveSessionsEnabled:process.env.ALLOW_PAID_LIVE_SESSIONS==="true",heygenConfigured:Boolean(process.env.HEYGEN_API_KEY&&process.env.HEYGEN_AVATAR_ID),textAiConfigured:Boolean(process.env.LLM_BASE_URL&&process.env.LLM_API_KEY&&process.env.LLM_MODEL),textAiFallbackConfigured:Boolean(process.env.LLM_FALLBACK_BASE_URL&&process.env.LLM_FALLBACK_API_KEY&&process.env.LLM_FALLBACK_MODEL),webSearchConfigured:Boolean(process.env.TAVILY_API_KEY),avatarWorker});});
+app.get("/api/runtime-status",async c=>{const avatarWorker=await checkAvatarWorker();return c.json({realtimeAvatarConfigured:Boolean(key()),paidLiveSessionsEnabled:process.env.ALLOW_PAID_LIVE_SESSIONS==="true",heygenConfigured:Boolean(process.env.HEYGEN_API_KEY),textAiConfigured:Boolean(process.env.LLM_BASE_URL&&process.env.LLM_API_KEY&&process.env.LLM_MODEL),textAiFallbackConfigured:Boolean(process.env.LLM_FALLBACK_BASE_URL&&process.env.LLM_FALLBACK_API_KEY&&process.env.LLM_FALLBACK_MODEL),webSearchConfigured:Boolean(process.env.TAVILY_API_KEY),avatarWorker});});
 app.get("/api/health",c=>c.json({ok:true,service:"RED LIVE",build:"live-generative-avatar-v2",liveMode:"realtime-generative-avatar",sdk:"realtime-avatar@0.27.0"}));
 app.get("/health",c=>c.json({ok:true,service:"RED LIVE",build:"live-generative-avatar-v2",liveMode:"realtime-generative-avatar",sdk:"realtime-avatar@0.27.0"}));
 app.use("/*",serveStatic({root:"./dist"}));
