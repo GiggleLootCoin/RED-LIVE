@@ -23,3 +23,13 @@ services:
         sync: false
       - key: TAVILY_API_KEY
         sync: false
+      - key: HEYGEN_API_KEY
+        sync: false
+      - key: HEYGEN_AVATAR_ID
+        sync: false
+      - key: HEYGEN_API_URL
+        value: https://api.liveavatar.com
+      - key: HEYGEN_IS_SANDBOX
+        value: "false"
+      - key: ALLOW_PAID_LIVE_SESSIONS
+        value: "false"
