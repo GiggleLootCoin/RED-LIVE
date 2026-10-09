@@ -48,3 +48,12 @@ Run `npm install`, set `REALTIME_AVATAR_API_KEY` on the server, and run `npm sta
 ## Cost
 
 RED LIVE itself does not add a subscription or paywall.
+
+
+## Free-first reliability and fallback
+
+- Text AI can use a primary OpenAI-compatible endpoint and an optional secondary endpoint. Configure `LLM_FALLBACK_BASE_URL`, `LLM_FALLBACK_API_KEY`, and `LLM_FALLBACK_MODEL` in the server environment to enable automatic failover when the primary errors or times out.
+- Each text-AI request has an 18-second timeout per configured route. No provider is considered unlimited or guaranteed free; use providers whose terms and pricing fit your needs.
+- Conversation history avoids appending the latest user message twice when the frontend already includes it in the history.
+- Keep `ALLOW_PAID_LIVE_SESSIONS=false` unless you deliberately want to enable a potentially billable live-avatar provider. Local portrait mode is a visual fallback, not photorealistic generated video or phoneme-accurate lip-sync.
+- `/api/runtime-status` reports whether server-side providers are configured. Configuration status does not guarantee that a provider is reachable or that a session will succeed.
