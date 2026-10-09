@@ -36,6 +36,6 @@ services:
       - key: HEYGEN_API_URL
         value: https://api.liveavatar.com
       - key: HEYGEN_IS_SANDBOX
-        value: "false"
+        value: "true"
       - key: ALLOW_PAID_LIVE_SESSIONS
         value: "false"
