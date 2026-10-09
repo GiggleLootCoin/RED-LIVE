@@ -56,3 +56,4 @@ RED LIVE itself does not add a subscription or paywall.
 - Each text-AI request has an 18-second timeout per configured route. No provider is considered unlimited or guaranteed free; use providers whose terms and pricing fit your needs.
 - Conversation history avoids appending the latest user message twice when the frontend already includes it in the history.
 - Keep `ALLOW_PAID_LIVE_SESSIONS=false` unless you deliberately want to enable a potentially billable live-avatar provider. Local portrait mode is a visual fallback, not photorealistic generated video or phoneme-accurate lip-sync.
+- `/api/runtime-status` reports whether the primary text AI, fallback text AI, web search, and avatar-provider settings are configured. This is a configuration check only; it does not guarantee provider reachability or a successful session.
