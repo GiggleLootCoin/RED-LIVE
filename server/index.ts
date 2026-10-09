@@ -5,6 +5,10 @@ import { realtimeAvatarHono } from "realtime-avatar/hono";
 import { RealtimeAvatar } from "realtime-avatar";
 
 const app = new Hono();
+// Verified ACTIVE public LiveAvatar ID from /v1/avatars/public (not a Video Agent render ID).
+// Used only when no explicit HEYGEN_AVATAR_ID is configured; sandbox remains enabled by default.
+const HEYGEN_SANDBOX_FALLBACK_AVATAR_ID = "65f9e3c9-d48b-4118-b73a-4ae2e3cbb8f0";
+const heygenAvatarId = () => (process.env.HEYGEN_AVATAR_ID || HEYGEN_SANDBOX_FALLBACK_AVATAR_ID).trim();
 const key = () => process.env.REALTIME_AVATAR_API_KEY ?? "";
 const base = "https://realtimeavatar.ai/api/v1";
 const headers = () => ({ Authorization: "Bearer " + key() });
@@ -28,21 +32,29 @@ app.get("/api/live-diagnostic",async c=>{if(!key())return c.json({ok:false,error
 
 
 async function llmChat(message:string,messages:any[],memory:string){
- const url=(process.env.LLM_BASE_URL||"").replace(/\/$/,"");
- const apiKey=process.env.LLM_API_KEY||"";
- const model=process.env.LLM_MODEL||"";
- if(!url||!apiKey||!model) throw new Error("Text AI is not configured. Set LLM_BASE_URL, LLM_API_KEY and LLM_MODEL.");
+ const providers=[
+  {name:"primary",url:(process.env.LLM_BASE_URL||"").replace(/\/$/,""),apiKey:process.env.LLM_API_KEY||"",model:process.env.LLM_MODEL||""},
+  {name:"fallback",url:(process.env.LLM_FALLBACK_BASE_URL||"").replace(/\/$/,""),apiKey:process.env.LLM_FALLBACK_API_KEY||"",model:process.env.LLM_FALLBACK_MODEL||""}
+ ].filter(p=>p.url&&p.apiKey&&p.model);
+ if(!providers.length) throw new Error("Text AI is not configured. Set LLM_BASE_URL, LLM_API_KEY and LLM_MODEL; optionally configure the LLM_FALLBACK_* variables for a second provider.");
+ const history=messages.slice(-16).filter((m:any,i:number,arr:any[])=>!(i===arr.length-1&&m.role==="user"&&String(m.content||"").trim()===message));
  const context=[
   {role:"system",content:persona+(memory?("\nUser memory:\n"+memory):"")},
-  ...messages.slice(-16).map((m:any)=>({role:m.role==="user"?"user":"assistant",content:String(m.content||"").slice(0,4000)})),
+  ...history.map((m:any)=>({role:m.role==="user"?"user":"assistant",content:String(m.content||"").slice(0,4000)})),
   {role:"user",content:message}
  ];
- const response=await fetch(url+"/chat/completions",{method:"POST",headers:{"content-type":"application/json",Authorization:"Bearer "+apiKey},body:JSON.stringify({model,messages:context,temperature:0.7,max_tokens:700})});
- const data=await response.json().catch(()=>null);
- if(!response.ok) throw new Error(data?.error?.message||data?.error||("LLM provider HTTP "+response.status));
- const reply=data?.choices?.[0]?.message?.content;
- if(typeof reply!=="string"||!reply.trim()) throw new Error("The text AI returned no response.");
- return reply.trim();
+ const failures:string[]=[];
+ for(const provider of providers){
+  try{
+   const response=await fetch(provider.url+"/chat/completions",{method:"POST",headers:{"content-type":"application/json",Authorization:"Bearer "+provider.apiKey},body:JSON.stringify({model:provider.model,messages:context,temperature:0.7,max_tokens:700}),signal:AbortSignal.timeout(18000)});
+   const data=await response.json().catch(()=>null);
+   if(!response.ok) throw new Error(data?.error?.message||data?.error||("HTTP "+response.status));
+   const reply=data?.choices?.[0]?.message?.content;
+   if(typeof reply!=="string"||!reply.trim()) throw new Error("provider returned an empty response");
+   return reply.trim();
+  }catch(e){failures.push(provider.name+": "+(e instanceof Error?(e.name==="TimeoutError"||e.name==="AbortError"?"request timed out":e.message):"request failed"))}
+ }
+ throw new Error("All configured text AI routes failed ("+failures.join("; ")+"). Check provider configuration or try again.");
 }
 
 app.post("/api/chat",async c=>{
@@ -80,9 +92,11 @@ async function createAvatar(c:any,file:File,name:string,motion:string,policy:boo
 app.post("/api/avatar/create",async c=>{try{const form=await c.req.formData();const file=form.get("file");if(!(file instanceof File))return c.json({error:"Portrait image is required."},400);const name=String(form.get("name")||"RED Avatar").slice(0,160);const motion=String(form.get("motionPrompt")||"Natural breathing, blinking, attentive eye contact, subtle head and shoulder movement, expressive listening and restrained conversational gestures.").slice(0,1200);const policy=String(form.get("policyAccepted")||"")==="true";return await createAvatar(c,file,name,motion,policy)}catch(e){return c.json({error:e instanceof Error?e.message:"Avatar creation failed."},500)}});
 app.post("/api/avatar/create-from-url",async c=>{try{const body=await c.req.json();const imageUrl=typeof body.imageUrl==="string"?body.imageUrl:"";const name=typeof body.displayName==="string"?body.displayName.slice(0,80):"RED LIVE Avatar";const motion=typeof body.motionPrompt==="string"?body.motionPrompt.slice(0,1000):"Natural breathing, blinking, attentive eye contact, subtle head and shoulder movement and restrained conversational gestures.";if(!/^https:\/\//i.test(imageUrl))return c.json({error:"Secure image URL required."},400);const source=await fetch(imageUrl);if(!source.ok)return c.json({error:"Avatar portrait could not be loaded."},502);const type=(source.headers.get("content-type")||"").split(";")[0].toLowerCase();const blob=await source.blob();const file=new File([blob],name.replace(/[^a-z0-9]+/gi,"-")+"."+(type==="image/png"?"png":type==="image/webp"?"webp":"jpg"),{type});return await createAvatar(c,file,name,motion,body.policyAccepted===true)}catch(e){return c.json({error:e instanceof Error?e.message:"Avatar creation failed."},500)}});
 
-app.get("/api/heygen/status",async c=>{if(process.env.ALLOW_PAID_LIVE_SESSIONS!=="true")return c.json({enabled:false,configured:false,error:"Paid live-avatar sessions are disabled in free mode."});const apiKey=process.env.HEYGEN_API_KEY||"";const avatarId=process.env.HEYGEN_AVATAR_ID||"";const apiUrl=(process.env.HEYGEN_API_URL||"https://api.liveavatar.com").replace(/\/$/,"");if(!apiKey)return c.json({enabled:false,configured:false,error:"HEYGEN_API_KEY is not configured on the server."});if(!avatarId)return c.json({enabled:true,configured:false,error:"HEYGEN_AVATAR_ID is missing. A HeyGen Video Agent render is not automatically a LiveAvatar ID."});return c.json({enabled:true,configured:true,avatarId,provider:"HeyGen LiveAvatar",apiUrl});});
+app.get("/api/heygen/avatars/public",async c=>{const apiKey=process.env.HEYGEN_API_KEY||"";const apiUrl=(process.env.HEYGEN_API_URL||"https://api.liveavatar.com").replace(/\/$/,"");if(!apiKey)return c.json({avatars:[],error:"HEYGEN_API_KEY is not configured on the server."},503);const page=Math.max(1,Math.min(100000,Number(c.req.query("page")||1)||1));const pageSize=Math.max(1,Math.min(100,Number(c.req.query("page_size")||20)||20));try{const r=await fetch(apiUrl+"/v1/avatars/public?page="+page+"&page_size="+pageSize,{headers:{"X-API-KEY":apiKey,accept:"application/json"},signal:AbortSignal.timeout(12000)});const payload=await r.json().catch(()=>null);if(!r.ok)return c.json({avatars:[],error:payload?.message||payload?.detail||("HeyGen public avatar list returned HTTP "+r.status)},r.status as any);const data=payload?.data;const rows=Array.isArray(data?.results)?data.results:[];return c.json({avatars:rows.map((a:any)=>({id:String(a.id||""),name:String(a.name||"Public avatar"),type:String(a.type||"unknown"),status:String(a.status||"unknown"),expired:Boolean(a.is_expired),previewUrl:a.preview_url||null,defaultVoice:a.default_voice?{id:a.default_voice.id||null,name:a.default_voice.name||null}:null,is1080p:Boolean(a.is_1080p)})),count:Number(data?.count||rows.length),page,pageSize,next:data?.next||null,previous:data?.previous||null});}catch(e){return c.json({avatars:[],error:e instanceof Error?e.message:"HeyGen public avatar discovery failed."},502)}});
 
-app.post("/api/heygen/session",async c=>{if(process.env.ALLOW_PAID_LIVE_SESSIONS!=="true")return c.json({error:"Paid live-avatar sessions are disabled in free mode."},403);const apiKey=process.env.HEYGEN_API_KEY||"";const avatarId=process.env.HEYGEN_AVATAR_ID||"";const apiUrl=(process.env.HEYGEN_API_URL||"https://api.liveavatar.com").replace(/\/$/,"");if(!apiKey)return c.json({error:"HeyGen LiveAvatar is not configured. Add HEYGEN_API_KEY to the RED-LIVE server environment."},503);if(!avatarId)return c.json({error:"HEYGEN_AVATAR_ID is missing. Configure a LiveAvatar ID before starting a provider session."},503);try{const body=await c.req.json().catch(()=>({}));const requestedAvatar=typeof body?.avatarId==="string"&&body.avatarId.trim()?body.avatarId.trim():avatarId;const sessionBody:any={mode:"LITE",is_sandbox:String(process.env.HEYGEN_IS_SANDBOX||"false")==="true"};if(requestedAvatar)sessionBody.avatar_id=requestedAvatar;const r=await fetch(apiUrl+"/v1/sessions/token",{method:"POST",headers:{"X-API-KEY":apiKey,"content-type":"application/json"},body:JSON.stringify(sessionBody)});const d=await r.json().catch(()=>null);if(!r.ok)return c.json({error:d?.data?.[0]?.message||d?.error||("HeyGen HTTP "+r.status)},r.status as any);const token=d?.data?.session_token;const sessionId=d?.data?.session_id;if(!token)return c.json({error:"HeyGen returned no session token."},502);return c.json({session_token:token,session_id:sessionId,avatar_id:requestedAvatar||null});}catch(e){return c.json({error:e instanceof Error?e.message:"HeyGen session creation failed."},502)}});
+app.get("/api/heygen/status",async c=>{const sandbox=String(process.env.HEYGEN_IS_SANDBOX||"false")==="true";if(!sandbox&&process.env.ALLOW_PAID_LIVE_SESSIONS!=="true")return c.json({enabled:false,configured:false,sandbox:false,error:"Paid live-avatar sessions are disabled in free mode."});const apiKey=process.env.HEYGEN_API_KEY||"";const avatarId=heygenAvatarId();const apiUrl=(process.env.HEYGEN_API_URL||"https://api.liveavatar.com").replace(/\/$/,"");if(!apiKey)return c.json({enabled:false,configured:false,sandbox,error:"HEYGEN_API_KEY is not configured on the server."},503);return c.json({enabled:true,configured:true,sandbox,avatarId,avatarSource:process.env.HEYGEN_AVATAR_ID?"environment":"active-public-sandbox-fallback",provider:"HeyGen LiveAvatar",apiUrl});});
+
+app.post("/api/heygen/session",async c=>{const sandbox=String(process.env.HEYGEN_IS_SANDBOX||"false")==="true";if(!sandbox&&process.env.ALLOW_PAID_LIVE_SESSIONS!=="true")return c.json({error:"Paid live-avatar sessions are disabled in free mode. Enable HEYGEN_IS_SANDBOX=true to test in sandbox without consuming credits."},403);const apiKey=process.env.HEYGEN_API_KEY||"";const avatarId=heygenAvatarId();const apiUrl=(process.env.HEYGEN_API_URL||"https://api.liveavatar.com").replace(/\/$/,"");if(!apiKey)return c.json({error:"HeyGen LiveAvatar is not configured. Add HEYGEN_API_KEY to the RED-LIVE server environment."},503);try{const body=await c.req.json().catch(()=>({}));const requestedAvatar=typeof body?.avatarId==="string"&&body.avatarId.trim()?body.avatarId.trim():avatarId;const sessionBody:any={mode:"LITE",is_sandbox:sandbox};if(requestedAvatar)sessionBody.avatar_id=requestedAvatar;const r=await fetch(apiUrl+"/v1/sessions/token",{method:"POST",headers:{"X-API-KEY":apiKey,"content-type":"application/json"},body:JSON.stringify(sessionBody)});const d=await r.json().catch(()=>null);if(!r.ok)return c.json({error:d?.data?.[0]?.message||d?.error||("HeyGen HTTP "+r.status)},r.status as any);const token=d?.data?.session_token;const sessionId=d?.data?.session_id;if(!token)return c.json({error:"HeyGen returned no session token."},502);return c.json({session_token:token,session_id:sessionId,avatar_id:requestedAvatar||null});}catch(e){return c.json({error:e instanceof Error?e.message:"HeyGen session creation failed."},502)}});
 
 
 async function checkAvatarWorker(){
@@ -102,7 +116,7 @@ async function checkAvatarWorker(){
 }
 app.get("/api/avatar-worker/status",async c=>c.json(await checkAvatarWorker()));
 
-app.get("/api/runtime-status",async c=>{const avatarWorker=await checkAvatarWorker();return c.json({realtimeAvatarConfigured:Boolean(key()),paidLiveSessionsEnabled:process.env.ALLOW_PAID_LIVE_SESSIONS==="true",heygenConfigured:Boolean(process.env.HEYGEN_API_KEY),textAiConfigured:Boolean(process.env.LLM_BASE_URL&&process.env.LLM_API_KEY&&process.env.LLM_MODEL),webSearchConfigured:Boolean(process.env.TAVILY_API_KEY),avatarWorker});});
+app.get("/api/runtime-status",async c=>{const avatarWorker=await checkAvatarWorker();return c.json({realtimeAvatarConfigured:Boolean(key()),paidLiveSessionsEnabled:process.env.ALLOW_PAID_LIVE_SESSIONS==="true",heygenConfigured:Boolean(process.env.HEYGEN_API_KEY),textAiConfigured:Boolean(process.env.LLM_BASE_URL&&process.env.LLM_API_KEY&&process.env.LLM_MODEL),textAiFallbackConfigured:Boolean(process.env.LLM_FALLBACK_BASE_URL&&process.env.LLM_FALLBACK_API_KEY&&process.env.LLM_FALLBACK_MODEL),webSearchConfigured:Boolean(process.env.TAVILY_API_KEY),avatarWorker});});
 app.get("/api/health",c=>c.json({ok:true,service:"RED LIVE",build:"live-generative-avatar-v2",liveMode:"realtime-generative-avatar",sdk:"realtime-avatar@0.27.0"}));
 app.get("/health",c=>c.json({ok:true,service:"RED LIVE",build:"live-generative-avatar-v2",liveMode:"realtime-generative-avatar",sdk:"realtime-avatar@0.27.0"}));
 app.use("/*",serveStatic({root:"./dist"}));

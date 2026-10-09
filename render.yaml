@@ -21,6 +21,12 @@ services:
         sync: false
       - key: LLM_MODEL
         sync: false
+      - key: LLM_FALLBACK_BASE_URL
+        sync: false
+      - key: LLM_FALLBACK_API_KEY
+        sync: false
+      - key: LLM_FALLBACK_MODEL
+        sync: false
       - key: TAVILY_API_KEY
         sync: false
       - key: HEYGEN_API_KEY
@@ -30,6 +36,6 @@ services:
       - key: HEYGEN_API_URL
         value: https://api.liveavatar.com
       - key: HEYGEN_IS_SANDBOX
-        value: "false"
+        value: "true"
       - key: ALLOW_PAID_LIVE_SESSIONS
         value: "false"
