@@ -21,6 +21,12 @@ services:
         sync: false
       - key: LLM_MODEL
         sync: false
+      - key: LLM_FALLBACK_BASE_URL
+        sync: false
+      - key: LLM_FALLBACK_API_KEY
+        sync: false
+      - key: LLM_FALLBACK_MODEL
+        sync: false
       - key: TAVILY_API_KEY
         sync: false
       - key: HEYGEN_API_KEY
