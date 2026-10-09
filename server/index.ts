@@ -28,21 +28,29 @@ app.get("/api/live-diagnostic",async c=>{if(!key())return c.json({ok:false,error
 
 
 async function llmChat(message:string,messages:any[],memory:string){
- const url=(process.env.LLM_BASE_URL||"").replace(/\/$/,"");
- const apiKey=process.env.LLM_API_KEY||"";
- const model=process.env.LLM_MODEL||"";
- if(!url||!apiKey||!model) throw new Error("Text AI is not configured. Set LLM_BASE_URL, LLM_API_KEY and LLM_MODEL.");
+ const providers=[
+  {name:"primary",url:(process.env.LLM_BASE_URL||"").replace(/\/$/,""),apiKey:process.env.LLM_API_KEY||"",model:process.env.LLM_MODEL||""},
+  {name:"fallback",url:(process.env.LLM_FALLBACK_BASE_URL||"").replace(/\/$/,""),apiKey:process.env.LLM_FALLBACK_API_KEY||"",model:process.env.LLM_FALLBACK_MODEL||""}
+ ].filter(p=>p.url&&p.apiKey&&p.model);
+ if(!providers.length) throw new Error("Text AI is not configured. Set LLM_BASE_URL, LLM_API_KEY and LLM_MODEL; optionally configure the LLM_FALLBACK_* variables for a second provider.");
+ const history=messages.slice(-16).filter((m:any,i:number,arr:any[])=>!(i===arr.length-1&&m.role==="user"&&String(m.content||"").trim()===message));
  const context=[
   {role:"system",content:persona+(memory?("\nUser memory:\n"+memory):"")},
-  ...messages.slice(-16).map((m:any)=>({role:m.role==="user"?"user":"assistant",content:String(m.content||"").slice(0,4000)})),
+  ...history.map((m:any)=>({role:m.role==="user"?"user":"assistant",content:String(m.content||"").slice(0,4000)})),
   {role:"user",content:message}
  ];
- const response=await fetch(url+"/chat/completions",{method:"POST",headers:{"content-type":"application/json",Authorization:"Bearer "+apiKey},body:JSON.stringify({model,messages:context,temperature:0.7,max_tokens:700})});
- const data=await response.json().catch(()=>null);
- if(!response.ok) throw new Error(data?.error?.message||data?.error||("LLM provider HTTP "+response.status));
- const reply=data?.choices?.[0]?.message?.content;
- if(typeof reply!=="string"||!reply.trim()) throw new Error("The text AI returned no response.");
- return reply.trim();
+ const failures:string[]=[];
+ for(const provider of providers){
+  try{
+   const response=await fetch(provider.url+"/chat/completions",{method:"POST",headers:{"content-type":"application/json",Authorization:"Bearer "+provider.apiKey},body:JSON.stringify({model:provider.model,messages:context,temperature:0.7,max_tokens:700}),signal:AbortSignal.timeout(18000)});
+   const data=await response.json().catch(()=>null);
+   if(!response.ok) throw new Error(data?.error?.message||data?.error||("HTTP "+response.status));
+   const reply=data?.choices?.[0]?.message?.content;
+   if(typeof reply!=="string"||!reply.trim()) throw new Error("provider returned an empty response");
+   return reply.trim();
+  }catch(e){failures.push(provider.name+": "+(e instanceof Error?(e.name==="TimeoutError"||e.name==="AbortError"?"request timed out":e.message):"request failed"))}
+ }
+ throw new Error("All configured text AI routes failed ("+failures.join("; ")+"). Check provider configuration or try again.");
 }
 
 app.post("/api/chat",async c=>{
