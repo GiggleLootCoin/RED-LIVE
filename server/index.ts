@@ -84,9 +84,57 @@ app.get("/api/web-search",async c=>{
 
 app.post("/api/memory",async c=>{try{const body=await c.req.json();const messages=Array.isArray(body.messages)?body.messages:[];const memory=typeof body.memory==="string"?body.memory.slice(0,3200):"";const context=[...(memory?[{role:"system",content:"User-saved memory:\n"+memory}]:[]),...messages.slice(-12).map((m:any)=>({role:m.role==="user"?"user":"assistant",content:String(m.content??"").slice(0,900)}))];const encoded=encodeURIComponent(JSON.stringify(context));if(encoded.length>6500)return c.json({error:"Memory is too large."},413);return new Response(JSON.stringify({ok:true}),{headers:{"content-type":"application/json","set-cookie":`red_memory=${encoded}; Path=/; Max-Age=31536000; Secure; SameSite=Lax`}})}catch{return c.json({error:"Invalid memory payload."},400)}});
 
-app.get("/api/avatars",async c=>{if(!key())return c.json({avatars:[],error:"Realtime Avatar server key is not configured."},503);try{const r=await fetch(base+"/avatars",{headers:headers()});if(!r.ok)return c.json({avatars:[],error:`Avatar provider returned HTTP ${r.status}.`},r.status as any);const payload=await r.json();const rows=Array.isArray(payload?.data)?payload.data:[];const custom=rows.filter((a:any)=>/^ava_[A-Za-z0-9_-]+$/.test(String(a?.id))&&!isPublicFigureLabel(String(a?.displayName||a?.name||""))).map((a:any)=>({id:String(a.id),name:String(a.displayName||a.name||"Live Avatar"),status:String(a.status||"unknown"),poster:a.posterUrl||a.poster_url||a.anchor?.url||null,idle:a.idleVideoUrl||a.idle_video_url||a.video?.url||null}));return c.json({avatars:[{id:"seed-rin-ashfall",name:"Rin Ashfall",status:"ready",poster:"https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/portrait.png",idle:"https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4"},...new Map(custom.map((x:any)=>[x.id,x])).values()]})}catch{return c.json({avatars:[],error:"Avatar provider could not be reached."},502)}});
+app.get("/api/avatars",async c=>{
+ const hgKey=process.env.HEYGEN_API_KEY||"";
+ const sandbox=String(process.env.HEYGEN_IS_SANDBOX||"false")==="true";
+ const hgUrl=(process.env.HEYGEN_API_URL||"https://api.liveavatar.com").replace(/\/$/,"");
+ if(hgKey){
+  try{
+   const r=await fetch(hgUrl+"/v1/avatars/public?page=1&page_size=100",{headers:{"X-API-KEY":hgKey,accept:"application/json"},signal:AbortSignal.timeout(12000)});
+   const payload=await r.json().catch(()=>null);
+   if(r.ok){
+    const data=payload?.data;
+    const rows=Array.isArray(data)?data:Array.isArray(data?.results)?data.results:Array.isArray(data?.avatars)?data.avatars:[];
+    const seen=new Set<string>();
+    const avatars:any[]=[];
+    const configured=process.env.HEYGEN_AVATAR_ID?.trim();
+    if(configured){
+      avatars.push({id:"heygen:"+configured,name:"RED LIVE Host",status:"ready",provider:"heygen",poster:null,idle:null});
+      seen.add(configured);
+    }
+    for(const a of rows){
+      const id=String(a?.id||a?.avatar_id||"").trim();
+      const name=String(a?.name||a?.display_name||"Live Avatar").trim();
+      if(!id||seen.has(id)||isPublicFigureLabel(name))continue;
+      const identity=String(a?.person_id||a?.personId||a?.person_uuid||a?.personUuid||a?.character_id||a?.characterId||a?.character_uuid||a?.characterUuid||id);
+      if(seen.has("identity:"+identity))continue;
+      const status=String(a?.status||"ACTIVE").toLowerCase();
+      if(a?.is_expired===true||a?.expired===true)continue;
+      seen.add(id);seen.add("identity:"+identity);
+      avatars.push({id:"heygen:"+id,name,status:status==="active"||status==="ready"?"ready":"ready",provider:"heygen",poster:a?.preview_url||a?.previewUrl||a?.preview_image_url||a?.thumbnail_url||a?.image_url||null,idle:null});
+      if(avatars.length>=12)break;
+    }
+    if(avatars.length)return c.json({avatars,provider:"heygen",sandbox});
+   }
+  }catch{}
+ }
+ if(!key())return c.json({avatars:[],error:"No live-avatar provider is configured."},503);
+ try{
+  const r=await fetch(base+"/avatars",{headers:headers()});
+  if(!r.ok)return c.json({avatars:[],error:`Avatar provider returned HTTP ${r.status}.`},r.status as any);
+  const payload=await r.json();const rows=Array.isArray(payload?.data)?payload.data:[];
+  const custom=rows.filter((a:any)=>/^ava_[A-Za-z0-9_-]+$/.test(String(a?.id))&&!isPublicFigureLabel(String(a?.displayName||a?.name||""))).map((a:any)=>({id:String(a.id),name:String(a.displayName||a.name||"Live Avatar"),status:String(a.status||"unknown"),provider:"realtime",poster:a.posterUrl||a.poster_url||a.anchor?.url||null,idle:a.idleVideoUrl||a.idle_video_url||a.video?.url||null}));
+  return c.json({avatars:[{id:"seed-rin-ashfall",name:"Rin Ashfall",status:"ready",provider:"realtime",poster:"https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/portrait.png",idle:"https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4"},...new Map(custom.map((x:any)=>[x.id,x])).values()]});
+ }catch{return c.json({avatars:[],error:"Avatar provider could not be reached."},502)}
+});
 
-app.get("/api/avatar/status",async c=>{const id=c.req.query("id")||"";if(!/^ava_[A-Za-z0-9_-]+$/.test(id))return c.json({error:"Invalid avatar id."},400);if(!key())return c.json({error:"Realtime Avatar server key is not configured."},503);try{const r=await fetch(base+"/avatars/"+encodeURIComponent(id),{headers:headers()});const d=await r.json().catch(()=>({}));if(!r.ok)return c.json({error:d?.error||`Avatar provider returned HTTP ${r.status}.`},r.status as any);return c.json({id:d.id,status:d.status,displayName:d.displayName||d.name||"Live Avatar",error:d.error||null,posterUrl:d.posterUrl||d.poster_url||null,idleVideoUrl:d.idleVideoUrl||d.idle_video_url||null})}catch{return c.json({error:"Avatar provider could not be reached."},502)}});
+app.get("/api/avatar/status",async c=>{
+ const id=c.req.query("id")||"";
+ if(id.startsWith("heygen:"))return c.json({id,status:"ready",displayName:"Live Avatar",error:null,posterUrl:null,idleVideoUrl:null,provider:"heygen"});
+ if(!/^ava_[A-Za-z0-9_-]+$/.test(id))return c.json({error:"Invalid avatar id."},400);
+ if(!key())return c.json({error:"Realtime Avatar server key is not configured."},503);
+ try{const r=await fetch(base+"/avatars/"+encodeURIComponent(id),{headers:headers()});const d=await r.json().catch(()=>({}));if(!r.ok)return c.json({error:d?.error||`Avatar provider returned HTTP ${r.status}.`},r.status as any);return c.json({id:d.id,status:d.status,displayName:d.displayName||d.name||"Live Avatar",error:d.error||null,posterUrl:d.posterUrl||d.poster_url||null,idleVideoUrl:d.idleVideoUrl||d.idle_video_url||null,provider:"realtime"})}catch{return c.json({error:"Avatar provider could not be reached."},502)}
+});
 
 async function createAvatar(c:any,file:File,name:string,motion:string,policy:boolean){if(process.env.ALLOW_PAID_AVATAR_CREATION!=="true")return c.json({error:"Provider avatar generation is disabled in free mode. Use a local portrait avatar instead."},403);if(!key())return c.json({error:"Realtime Avatar server key is not configured."},503);if(!policy)return c.json({error:"Confirm that the portrait is original, licensed, or used with permission, and is not a public figure."},400);if(isPublicFigureLabel(name)||isPublicFigureLabel(motion))return c.json({error:"Public-figure avatars are not allowed in RED LIVE."},400);if(!/^image\/(png|jpeg|webp)$/.test(file.type)||file.size>8*1024*1024)return c.json({error:"Use a PNG, JPEG or WebP portrait up to 8 MB."},400);try{const rta=new RealtimeAvatar({apiKey:key()});const asset=await rta.uploadAsset(file,{kind:"image",filename:file.name||"portrait.png"});const avatar:any=await rta.createAvatar({displayName:name,sourceKind:"image",sourceAssetId:asset.id,motionPrompt:motion,voice:{auto_description:"Natural adult human voice. Warm, grounded, realistic British or neutral English conversation. Mature adult delivery, subtle emotion, natural pauses and varied intonation. Never cartoon, mascot, character, childlike, announcer, presenter, radio, call-centre, squeaky, sing-song or theatrical."}});return c.json({id:avatar.id,displayName:avatar.displayName||name,status:avatar.status,posterUrl:avatar.posterUrl||avatar.anchor?.url||null,idleVideoUrl:avatar.idleVideoUrl||avatar.idle_video_url||null});}catch(e){const err:any=e;const status=Number(err?.status||err?.statusCode||0);return c.json({error:err?.message||"Avatar creation failed.",code:err?.code||"avatar_creation_failed"},status>=400&&status<600?status:502)}}
 app.post("/api/avatar/create",async c=>{try{const form=await c.req.formData();const file=form.get("file");if(!(file instanceof File))return c.json({error:"Portrait image is required."},400);const name=String(form.get("name")||"RED Avatar").slice(0,160);const motion=String(form.get("motionPrompt")||"Natural breathing, blinking, attentive eye contact, subtle head and shoulder movement, expressive listening and restrained conversational gestures.").slice(0,1200);const policy=String(form.get("policyAccepted")||"")==="true";return await createAvatar(c,file,name,motion,policy)}catch(e){return c.json({error:e instanceof Error?e.message:"Avatar creation failed."},500)}});
