@@ -84,49 +84,7 @@ app.get("/api/web-search",async c=>{
 
 app.post("/api/memory",async c=>{try{const body=await c.req.json();const messages=Array.isArray(body.messages)?body.messages:[];const memory=typeof body.memory==="string"?body.memory.slice(0,3200):"";const context=[...(memory?[{role:"system",content:"User-saved memory:\n"+memory}]:[]),...messages.slice(-12).map((m:any)=>({role:m.role==="user"?"user":"assistant",content:String(m.content??"").slice(0,900)}))];const encoded=encodeURIComponent(JSON.stringify(context));if(encoded.length>6500)return c.json({error:"Memory is too large."},413);return new Response(JSON.stringify({ok:true}),{headers:{"content-type":"application/json","set-cookie":`red_memory=${encoded}; Path=/; Max-Age=31536000; Secure; SameSite=Lax`}})}catch{return c.json({error:"Invalid memory payload."},400)}});
 
-app.get("/api/avatars",async c=>{
- const hgKey=process.env.HEYGEN_API_KEY||"";
- const sandbox=String(process.env.HEYGEN_IS_SANDBOX||"false")==="true";
- const hgUrl=(process.env.HEYGEN_API_URL||"https://api.liveavatar.com").replace(/\/$/,"");
- if(hgKey){
-  try{
-   const r=await fetch(hgUrl+"/v1/avatars/public?page=1&page_size=100",{headers:{"X-API-KEY":hgKey,accept:"application/json"},signal:AbortSignal.timeout(12000)});
-   const payload=await r.json().catch(()=>null);
-   if(r.ok){
-    const data=payload?.data;
-    const rows=Array.isArray(data)?data:Array.isArray(data?.results)?data.results:Array.isArray(data?.avatars)?data.avatars:[];
-    const seen=new Set<string>();
-    const avatars:any[]=[];
-    const configured=process.env.HEYGEN_AVATAR_ID?.trim();
-    if(configured){
-      avatars.push({id:"heygen:"+configured,name:"RED LIVE Host",status:"ready",provider:"heygen",poster:null,idle:null});
-      seen.add(configured);
-    }
-    for(const a of rows){
-      const id=String(a?.id||a?.avatar_id||"").trim();
-      const name=String(a?.name||a?.display_name||"Live Avatar").trim();
-      if(!id||seen.has(id)||isPublicFigureLabel(name))continue;
-      const identity=String(a?.person_id||a?.personId||a?.person_uuid||a?.personUuid||a?.character_id||a?.characterId||a?.character_uuid||a?.characterUuid||id);
-      if(seen.has("identity:"+identity))continue;
-      const status=String(a?.status||"ACTIVE").toLowerCase();
-      if(a?.is_expired===true||a?.expired===true)continue;
-      seen.add(id);seen.add("identity:"+identity);
-      avatars.push({id:"heygen:"+id,name,status:status==="active"||status==="ready"?"ready":"ready",provider:"heygen",poster:a?.preview_url||a?.previewUrl||a?.preview_image_url||a?.thumbnail_url||a?.image_url||null,idle:null});
-      if(avatars.length>=12)break;
-    }
-    if(avatars.length)return c.json({avatars,provider:"heygen",sandbox});
-   }
-  }catch{}
- }
- if(!key())return c.json({avatars:[],error:"No live-avatar provider is configured."},503);
- try{
-  const r=await fetch(base+"/avatars",{headers:headers()});
-  if(!r.ok)return c.json({avatars:[],error:`Avatar provider returned HTTP ${r.status}.`},r.status as any);
-  const payload=await r.json();const rows=Array.isArray(payload?.data)?payload.data:[];
-  const custom=rows.filter((a:any)=>/^ava_[A-Za-z0-9_-]+$/.test(String(a?.id))&&!isPublicFigureLabel(String(a?.displayName||a?.name||""))).map((a:any)=>({id:String(a.id),name:String(a.displayName||a.name||"Live Avatar"),status:String(a.status||"unknown"),provider:"realtime",poster:a.posterUrl||a.poster_url||a.anchor?.url||null,idle:a.idleVideoUrl||a.idle_video_url||a.video?.url||null}));
-  return c.json({avatars:[{id:"seed-rin-ashfall",name:"Rin Ashfall",status:"ready",provider:"realtime",poster:"https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/portrait.png",idle:"https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4"},...new Map(custom.map((x:any)=>[x.id,x])).values()]});
- }catch{return c.json({avatars:[],error:"Avatar provider could not be reached."},502)}
-});
+app.get("/api/avatars",async c=>{if(!key())return c.json({avatars:[],error:"Realtime Avatar server key is not configured."},503);try{const r=await fetch(base+"/avatars",{headers:headers()});if(!r.ok)return c.json({avatars:[],error:`Avatar provider returned HTTP ${r.status}.`},r.status as any);const payload=await r.json();const rows=Array.isArray(payload?.data)?payload.data:[];const custom=rows.filter((a:any)=>/^ava_[A-Za-z0-9_-]+$/.test(String(a?.id))&&!isPublicFigureLabel(String(a?.displayName||a?.name||""))).map((a:any)=>({id:String(a.id),name:String(a.displayName||a.name||"Live Avatar"),status:String(a.status||"unknown"),provider:"realtime",poster:a.posterUrl||a.poster_url||a.anchor?.url||null,idle:a.idleVideoUrl||a.idle_video_url||a.video?.url||null}));return c.json({avatars:[{id:"seed-rin-ashfall",name:"Rin Ashfall",status:"ready",provider:"realtime",poster:"https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/portrait.png",idle:"https://realtimeavatar.ai/api/assets/public/characters/rin-ashfall/idle-10s.mp4"},...new Map(custom.map((x:any)=>[x.id,x])).values()]})}catch{return c.json({avatars:[],error:"Avatar provider could not be reached."},502)}});
 
 app.get("/api/avatar/status",async c=>{
  const id=c.req.query("id")||"";
